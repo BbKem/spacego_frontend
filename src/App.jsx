@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { retrieveLaunchParams, MainButton } from '@telegram-apps/sdk'
+import { retrieveLaunchParams } from '@telegram-apps/sdk'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -12,7 +12,6 @@ function App() {
       const lp = retrieveLaunchParams()
       setUser(lp.initDataUnsafe?.user || null)
     } catch (e) {
-      // Для локальной разработки
       setUser({ id: 123456789, first_name: 'Test' })
     }
   }, [])
@@ -66,7 +65,23 @@ function App() {
         style={{ width: '100%', padding: 10, marginBottom: 10 }}
       />
 
-      <MainButton text="➕ Добавить объявление" onClick={handleSubmit} />
+      {/* Обычная кнопка, стилизованная под Telegram */}
+      <button
+        onClick={handleSubmit}
+        style={{
+          width: '100%',
+          padding: '14px',
+          backgroundColor: '#3390ec',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          cursor: 'pointer'
+        }}
+      >
+        ➕ Добавить объявление
+      </button>
 
       {status && <p style={{ marginTop: 15, color: status.includes('✅') ? 'green' : 'red' }}>{status}</p>}
     </div>
