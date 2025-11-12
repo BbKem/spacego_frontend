@@ -1,207 +1,193 @@
-import { useEffect, useState } from 'react'
-import { retrieveLaunchParams } from '@telegram-apps/sdk'
+import { useState, useEffect } from 'react'
+import Login from './components/Login'
+import Register from './components/Register'
+import Home from './components/Home'
+import AdDetail from './components/AdDetail'
+import CreateAd from './components/CreateAd' // Добавьте этот импорт
 
 function App() {
-  const [user, setUser] = useState(null)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [status, setStatus] = useState('')
+  const API_BASE = import.meta.env.DEV 
+    ? 'http://localhost:4000' 
+    : 'https://spacego-backend.onrender.com'
+
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [token, setToken] = useState('')
+  const [user, setUser] = useState(null)
+  const [currentPage, setCurrentPage] = useState('home') // home, login, register, ad-detail, create-ad
+  const [selectedAd, setSelectedAd] = useState(null)
 
-  // Проверка, есть ли токен в localStorage
   useEffect(() => {
-    const savedToken = localStorage.getItem('token')
-    if (savedToken) {
-      setToken(savedToken)
+    const saved = localStorage.getItem('token')
+    if (saved) {
+      setToken(saved)
       setIsLoggedIn(true)
-      // Можно дополнительно получить данные пользователя, если нужно
+      fetchUser()
     }
   }, [])
 
-  const handleRegister = async () => {
-    if (!email || !password) {
-      setStatus('Введите email и пароль')
-      return
-    }
-
-    setStatus('Регистрация...')
+  const fetchUser = async () => {
     try {
-      const response = await fetch('https://spacego-backend.onrender.com/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+      const res = await fetch(`${API_BASE}/api/user`, {
+        headers: { Authorization: `Bearer ${token}` }
       })
-
-      const data = await response.json()
-      if (response.ok) {
-        setStatus('✅ Регистрация успешна! Теперь войдите.')
-        setEmail('')
-        setPassword('')
-      } else {
-        setStatus('❌ Ошибка: ' + (data.error || 'сервер'))
-      }
+      const data = await res.json()
+      if (res.ok) setUser(data.user)
     } catch (err) {
-      setStatus('❌ Ошибка сети')
+      console.error('Ошибка загрузки профиля')
     }
   }
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setStatus('Введите email и пароль')
-      return
-    }
-
-    setStatus('Вход...')
-    try {
-      const response = await fetch('https://spacego-backend.onrender.com/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      })
-
-      const data = await response.json()
-      if (response.ok) {
-        localStorage.setItem('token', data.token)
-        setToken(data.token)
-        setIsLoggedIn(true)
-        setStatus('✅ Вы вошли!')
-        setEmail('')
-        setPassword('')
-      } else {
-        setStatus('❌ Ошибка: ' + (data.error || 'сервер'))
-      }
-    } catch (err) {
-      setStatus('❌ Ошибка сети')
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    setToken('')
+    setIsLoggedIn(false)
+    setUser(null)
+    setCurrentPage('home')
+    setSelectedAd(null)
   }
 
-  const handleSubmit = async () => {
-    if (!title.trim() || !description.trim()) {
-      setStatus('Заполните все поля')
-      return
-    }
+  const viewAd = (ad) => {
+    setSelectedAd(ad)
+    setCurrentPage('ad-detail')
+  }
 
-    setStatus('Отправка...')
-    try {
-      const response = await fetch('https://spacego-backend.onrender.com/api/ads', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ title, description })
-      })
+  const handleAdCreated = (ad) => {
+    // Можно обновить список объявлений или показать уведомление
+    console.log('Новое объявление создано:', ad)
+  }
 
-      const data = await response.json()
-      if (response.ok) {
-        setStatus('✅ Объявление добавлено!')
-        setTitle('')
-        setDescription('')
-      } else {
-        setStatus('❌ Ошибка: ' + (data.error || 'сервер'))
-      }
-    } catch (err) {
-      setStatus('❌ Ошибка сети')
-    }
+  if (!isLoggedIn) {
+    return (
+      <div style={pageStyle}>
+        {currentPage === 'login' && <Login onLoginSuccess={() => { setIsLoggedIn(true); setCurrentPage('home'); }} />}
+        {currentPage === 'register' && <Register onRegisterSuccess={() => { setCurrentPage('login'); }} />}
+        {currentPage === 'home' && (
+          <div style={authLandingStyle}>
+            <div style={logoStyle}>
+              <svg style={logoSvgStyle} fill="none" viewBox="0 0 24 24">
+                <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="white" strokeWidth="2" />
+                <path d="M2 7L12 12" stroke="white" strokeWidth="2" />
+                <path d="M12 22V12" stroke="white" strokeWidth="2" />
+                <path d="M22 7L12 12" stroke="white" strokeWidth="2" />
+                <path d="M17 4.5L7 9.5" stroke="white" strokeWidth="2" />
+              </svg>
+            </div>
+            <h1 style={authTitleStyle}>С возвращением!</h1>
+            <p style={authSubtitleStyle}>Войдите в свой аккаунт Spacego</p>
+            <div style={authButtonsStyle}>
+              <button onClick={() => setCurrentPage('login')} style={primaryButtonStyle}>Войти</button>
+              <p style={switchText}>Нет аккаунта? <button onClick={() => setCurrentPage('register')} style={linkStyle}>Зарегистрироваться</button></p>
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
-    <div style={{ padding: 20, fontFamily: 'sans-serif', maxWidth: 500 }}>
-      {!isLoggedIn ? (
-        <>
-          <h2>Регистрация / Вход</h2>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            style={{ width: '100%', padding: 10, marginBottom: 10 }}
-          />
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Пароль"
-            type="password"
-            style={{ width: '100%', padding: 10, marginBottom: 10 }}
-          />
-
-          <button
-            onClick={handleRegister}
-            style={{
-              width: '100%',
-              padding: '14px',
-              backgroundColor: '#3390ec',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              marginBottom: '10px'
-            }}
-          >
-            📝 Зарегистрироваться
-          </button>
-
-          <button
-            onClick={handleLogin}
-            style={{
-              width: '100%',
-              padding: '14px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            🔐 Войти
-          </button>
-        </>
-      ) : (
-        <>
-          <h2>Привет, пользователь!</h2>
-
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Заголовок объявления"
-            style={{ width: '100%', padding: 10, marginBottom: 10 }}
-          />
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Описание"
-            rows="5"
-            style={{ width: '100%', padding: 10, marginBottom: 10 }}
-          />
-
-          <button
-            onClick={handleSubmit}
-            style={{
-              width: '100%',
-              padding: '14px',
-              backgroundColor: '#3390ec',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            ➕ Добавить объявление
-          </button>
-        </>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f6f6f8', fontFamily: "'Space Grotesk', sans-serif" }}>
+      {currentPage === 'home' && (
+        <Home 
+          user={user} 
+          onLogout={handleLogout} 
+          onViewAd={viewAd}
+          onCreateAd={() => setCurrentPage('create-ad')}
+        />
       )}
-
-      {status && <p style={{ marginTop: 15, color: status.includes('✅') ? 'green' : 'red' }}>{status}</p>}
+      {currentPage === 'ad-detail' && <AdDetail ad={selectedAd} onBack={() => setCurrentPage('home')} />}
+      {currentPage === 'create-ad' && (
+        <CreateAd 
+          onBack={() => setCurrentPage('home')} 
+          onAdCreated={handleAdCreated}
+        />
+      )}
     </div>
   )
+}
+
+// Стили (максимально близко к твоим HTML-примерам)
+const pageStyle = {
+  display: 'flex',
+  height: '100vh',
+  width: '100%',
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: '#f6f6f8'
+}
+
+const authLandingStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  maxWidth: '400px',
+  width: '100%',
+  padding: '0 20px'
+}
+
+const logoStyle = {
+  width: 64,
+  height: 64,
+  borderRadius: 16,
+  backgroundColor: '#135bec',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginBottom: 32
+}
+
+const logoSvgStyle = {
+  width: 32,
+  height: 32,
+  color: 'white'
+}
+
+const authTitleStyle = {
+  fontSize: 32,
+  fontWeight: 'bold',
+  textAlign: 'center',
+  marginBottom: 8,
+  color: '#0d121b'
+}
+
+const authSubtitleStyle = {
+  fontSize: 16,
+  textAlign: 'center',
+  color: '#4c669a',
+  marginBottom: 32
+}
+
+const authButtonsStyle = {
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 32
+}
+
+const primaryButtonStyle = {
+  height: 56,
+  width: '100%',
+  borderRadius: 12,
+  backgroundColor: '#135bec',
+  color: 'white',
+  fontSize: 16,
+  fontWeight: 'bold',
+  border: 'none',
+  cursor: 'pointer'
+}
+
+const switchText = {
+  fontSize: 14,
+  color: '#4c669a',
+  textAlign: 'center'
+}
+
+const linkStyle = {
+  color: '#135bec',
+  fontWeight: 'bold',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  textDecoration: 'underline'
 }
 
 export default App
