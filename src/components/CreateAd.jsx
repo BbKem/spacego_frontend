@@ -34,26 +34,37 @@ function CreateAd({ onBack, onAdCreated }) {
   }
 
   const handlePhotoUpload = (event) => {
-    const file = event.target.files[0]
-    if (!file) return
+  const file = event.target.files[0]
+  if (!file) return
 
-    // Проверка размера файла
-    if (file.size > 2 * 1024 * 1024) {
-      setStatus('❌ Файл слишком большой. Максимум 2MB.')
-      return
-    }
-
-    // Создаем preview
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setPhoto({
-        file: file,
-        preview: e.target.result,
-        name: file.name
-      })
-    }
-    reader.readAsDataURL(file)
+  // Проверка размера файла - 500KB максимум
+  if (file.size > 500 * 1024) {
+    setStatus('❌ Файл слишком большой. Максимум 500KB.')
+    return
   }
+
+  // Проверка типа файла
+  if (!file.type.startsWith('image/')) {
+    setStatus('❌ Можно загружать только изображения')
+    return
+  }
+
+  // Создаем preview
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    setPhoto({
+      file: file,
+      preview: e.target.result,
+      name: file.name,
+      size: file.size
+    })
+    setStatus(`✅ Фото готово к загрузке (${Math.round(file.size / 1024)}KB)`)
+  }
+  reader.onerror = () => {
+    setStatus('❌ Ошибка чтения файла')
+  }
+  reader.readAsDataURL(file)
+}
 
   const removePhoto = () => {
     setPhoto(null)
