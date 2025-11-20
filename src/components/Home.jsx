@@ -8,11 +8,23 @@ function Home({ user, onLogout, onViewAd, onCreateAd  }) {
 
   const [categories, setCategories] = useState([])
   const [ads, setAds] = useState([])
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [filteredAds, setFilteredAds] = useState([])
 
   useEffect(() => {
     loadCategories()
     loadAds()
   }, [])
+
+  useEffect(() => {
+    // Фильтрация по имени категории
+    if (selectedCategory) {
+      const filtered = ads.filter(ad => ad.category_name === selectedCategory.name)
+      setFilteredAds(filtered)
+    } else {
+      setFilteredAds(ads)
+    }
+  }, [selectedCategory, ads])
 
   const loadCategories = async () => {
     try {
@@ -24,14 +36,46 @@ function Home({ user, onLogout, onViewAd, onCreateAd  }) {
     }
   }
 
-  const loadAds = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/ads`)
-      const data = await res.json()
-      setAds(data)
-    } catch (err) {
-      console.error('Ошибка загрузки объявлений')
+ // В компоненте Home, в функции loadAds добавьте обработку photo_urls:
+const loadAds = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/api/ads`)
+    const data = await res.json()
+    
+    // Обрабатываем объявления с несколькими фото
+    const processedAds = data.map(ad => {
+      // Если photo_url содержит JSON-массив, парсим его
+      if (ad.photo_url && ad.photo_url.startsWith('[')) {
+        try {
+          ad.photo_urls = JSON.parse(ad.photo_url);
+        } catch (e) {
+          ad.photo_urls = [];
+        }
+      } else if (ad.photo_url) {
+        // Для обратной совместимости со старыми объявлениями
+        ad.photo_urls = [ad.photo_url];
+      } else {
+        ad.photo_urls = [];
+      }
+      return ad;
+    });
+    
+    setAds(processedAds);
+  } catch (err) {
+    console.error('Ошибка загрузки объявлений')
+  }
+}
+
+  const handleCategoryClick = (category) => {
+    if (selectedCategory && selectedCategory.id === category.id) {
+      setSelectedCategory(null)
+    } else {
+      setSelectedCategory(category)
     }
+  }
+
+  const clearFilter = () => {
+    setSelectedCategory(null)
   }
 
   return (
@@ -58,19 +102,55 @@ function Home({ user, onLogout, onViewAd, onCreateAd  }) {
 
       {/* Chips */}
       <div style={chipsContainerStyle}>
+        <div 
+          key="all"
+          style={selectedCategory === null ? chipActiveStyle : chipStyle}
+          onClick={clearFilter}
+        >
+          Все
+        </div>
+        
         {categories.map(cat => (
-          <div key={cat.id} style={chipActiveStyle}>{cat.name}</div>
+          <div 
+            key={cat.id} 
+            style={selectedCategory && selectedCategory.id === cat.id ? chipActiveStyle : chipStyle}
+            onClick={() => handleCategoryClick(cat)}
+          >
+            {cat.name}
+          </div>
         ))}
       </div>
+
+      {/* Индикатор выбранной категории */}
+      {selectedCategory && (
+        <div style={filterIndicatorStyle}>
+          <span>Показаны объявления в категории: <strong>{selectedCategory.name}</strong></span>
+          <button style={clearFilterStyle} onClick={clearFilter}>
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+      )}
 
       {/* Grid */}
       <div style={gridStyle}>
-        {ads.map(ad => (
-          <AdCard key={ad.id} ad={ad} onClick={() => onViewAd(ad)} />
-        ))}
+        {filteredAds.length > 0 ? (
+          filteredAds.map(ad => (
+            <AdCard key={ad.id} ad={ad} onClick={() => onViewAd(ad)} />
+          ))
+        ) : (
+          <div style={noResultsStyle}>
+            {selectedCategory ? (
+              <p>Нет объявлений в категории "{selectedCategory.name}"</p>
+            ) : ads.length === 0 ? (
+              <p>Нет объявлений</p>
+            ) : (
+              <p>Загрузка...</p>
+            )}
+          </div>
+        )}
       </div>
 
-     {/* FAB */}
+      {/* FAB */}
       <button style={fabStyle} onClick={onCreateAd}>
         <span className="material-symbols-outlined">add</span>
       </button>
@@ -101,7 +181,8 @@ function Home({ user, onLogout, onViewAd, onCreateAd  }) {
     </div>
   )
 }
-// Стили главной страницы
+
+// Стили остаются без изменений
 const topAppBarStyle = {
   display: 'flex',
   justifyContent: 'space-between',
@@ -165,14 +246,46 @@ const chipsContainerStyle = {
   overflowX: 'auto'
 }
 
-const chipActiveStyle = {
+const chipStyle = {
   padding: '8px 16px',
-  backgroundColor: '#135bec',
-  color: 'white',
+  backgroundColor: 'white',
+  color: '#4c669a',
+  border: '1px solid #cfd7e7',
   borderRadius: 8,
   fontSize: 14,
   fontWeight: '500',
-  whiteSpace: 'nowrap'
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease'
+}
+
+const chipActiveStyle = {
+  ...chipStyle,
+  backgroundColor: '#135bec',
+  color: 'white',
+  border: '1px solid #135bec'
+}
+
+const filterIndicatorStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '12px 16px',
+  backgroundColor: '#e3f2fd',
+  margin: '0 16px 12px',
+  borderRadius: 8,
+  fontSize: 14,
+  color: '#0d121b'
+}
+
+const clearFilterStyle = {
+  background: 'none',
+  border: 'none',
+  color: '#135bec',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  padding: 4
 }
 
 const gridStyle = {
@@ -180,6 +293,14 @@ const gridStyle = {
   gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))',
   gap: 12,
   padding: '0 16px 80px'
+}
+
+const noResultsStyle = {
+  gridColumn: '1 / -1',
+  textAlign: 'center',
+  padding: '40px 20px',
+  color: '#6b7280',
+  fontSize: 16
 }
 
 const fabStyle = {
@@ -218,7 +339,8 @@ const navItemStyle = {
   alignItems: 'center',
   gap: 4,
   color: '#6b7280',
-  fontSize: 10
+  fontSize: 10,
+  cursor: 'pointer'
 }
 
 const navItemActiveStyle = {

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 
-function Register({ onRegisterSuccess }) {
+function Register({ onRegisterSuccess, onGoToLogin }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [status, setStatus] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
@@ -33,63 +35,94 @@ function Register({ onRegisterSuccess }) {
     }
   }
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
+  }
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword)
+  }
+
   return (
     <div style={authPageStyle}>
-      <div style={backButtonStyle} onClick={onRegisterSuccess}>
+      <div style={backButtonStyle} onClick={onGoToLogin}>
         <span className="material-symbols-outlined">arrow_back</span>
       </div>
-      <h1 style={{ ...formTitleStyle, textAlign: 'left', width: '100%', marginBottom: 32 }}>Создать аккаунт</h1>
+      <h1 style={formTitleStyle}>Создать аккаунт</h1>
       <div style={formContainerStyle}>
         <div style={inputGroupStyle}>
           <label style={labelStyle}>Ваше имя</label>
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            style={{ ...inputStyle, height: 56, borderRadius: 12, border: '1px solid #d1d5db' }}
-            placeholder="Введите ваше имя"
-          />
+          <div style={inputWrapperStyle}>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              style={inputStyle}
+              placeholder="Введите ваше имя"
+            />
+          </div>
         </div>
+        
         <div style={inputGroupStyle}>
           <label style={labelStyle}>Email</label>
-          <input
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            style={{ ...inputStyle, height: 56, borderRadius: 12, border: '1px solid #d1d5db' }}
-            placeholder="Введите ваш email"
-            type="email"
-          />
+          <div style={inputWrapperStyle}>
+            <input
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              style={inputStyle}
+              placeholder="Введите ваш email"
+              type="email"
+            />
+          </div>
         </div>
+        
         <div style={inputGroupStyle}>
           <label style={labelStyle}>Пароль</label>
-          <div style={{ ...inputWrapperStyle, border: '1px solid #d1d5db' }}>
+          <div style={inputWrapperStyle}>
             <input
               value={password}
               onChange={e => setPassword(e.target.value)}
-              style={{ ...inputStyle, height: 56, borderRadius: '12px 0 0 12px', borderRight: 'none' }}
+              style={inputStyle}
               placeholder="Введите пароль"
-              type="password"
+              type={showPassword ? "text" : "password"}
             />
-            <button style={{ ...eyeButtonStyle, borderRadius: '0 12px 12px 0' }} className="material-symbols-outlined">visibility_off</button>
+            <button 
+              type="button"
+              style={eyeButtonStyle} 
+              onClick={togglePasswordVisibility}
+              className="material-symbols-outlined"
+            >
+              {showPassword ? "visibility_off" : "visibility"}
+            </button>
           </div>
         </div>
+        
         <div style={inputGroupStyle}>
           <label style={labelStyle}>Подтвердите пароль</label>
-          <div style={{ ...inputWrapperStyle, border: '1px solid #d1d5db' }}>
+          <div style={inputWrapperStyle}>
             <input
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
-              style={{ ...inputStyle, height: 56, borderRadius: '12px 0 0 12px', borderRight: 'none' }}
+              style={inputStyle}
               placeholder="Повторите ваш пароль"
-              type="password"
+              type={showConfirmPassword ? "text" : "password"}
             />
-            <button style={{ ...eyeButtonStyle, borderRadius: '0 12px 12px 0' }} className="material-symbols-outlined">visibility_off</button>
+            <button 
+              type="button"
+              style={eyeButtonStyle} 
+              onClick={toggleConfirmPasswordVisibility}
+              className="material-symbols-outlined"
+            >
+              {showConfirmPassword ? "visibility_off" : "visibility"}
+            </button>
           </div>
         </div>
-        <button onClick={handleRegister} style={{ ...primaryButtonStyle, marginTop: 24 }}>
+        
+        <button onClick={handleRegister} style={primaryButtonStyle}>
           Зарегистрироваться
         </button>
+        
         <p style={switchText}>
-          Уже есть аккаунт? <button onClick={onRegisterSuccess} style={linkStyle}>Войти</button>
+          Уже есть аккаунт? <button onClick={onGoToLogin} style={linkStyle}>Войти</button>
         </p>
         {status && <p style={statusStyle(status)}>{status}</p>}
       </div>
@@ -97,12 +130,12 @@ function Register({ onRegisterSuccess }) {
   )
 }
 
-// Стили — те же, что в Login.jsx (скопируй их вниз)
+// Обновленные стили для регистрации
 const authPageStyle = {
   height: '100vh',
   display: 'flex',
   flexDirection: 'column',
-  padding: '20px',
+  padding: '40px 20px',
   backgroundColor: '#f6f6f8',
   fontFamily: "'Space Grotesk', sans-serif"
 }
@@ -114,21 +147,24 @@ const backButtonStyle = {
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  marginBottom: 32
 }
 
 const formTitleStyle = {
   fontSize: 24,
   fontWeight: 'bold',
   color: '#0d121b',
-  marginBottom: 8
+  marginBottom: 32,
+  textAlign: 'left',
+  width: '100%'
 }
 
 const formContainerStyle = {
   width: '100%',
   display: 'flex',
   flexDirection: 'column',
-  gap: 16
+  gap: 20
 }
 
 const inputGroupStyle = {
@@ -138,23 +174,31 @@ const inputGroupStyle = {
 }
 
 const labelStyle = {
-  fontSize: 16,
+  fontSize: 14,
   fontWeight: '500',
-  color: '#0d121b'
-}
-
-const inputStyle = {
-  width: '100%',
-  padding: '0 16px',
-  fontSize: 16,
   color: '#0d121b',
-  outline: 'none'
+  marginBottom: 4
 }
 
 const inputWrapperStyle = {
+  position: 'relative',
   display: 'flex',
   alignItems: 'center',
-  backgroundColor: 'white'
+  border: '1px solid #cfd7e7',
+  borderRadius: 12,
+  backgroundColor: 'white',
+  overflow: 'hidden'
+}
+
+const inputStyle = {
+  flex: 1,
+  height: 56,
+  border: 'none',
+  outline: 'none',
+  backgroundColor: 'transparent',
+  padding: '0 16px',
+  fontSize: 16,
+  color: '#0d121b'
 }
 
 const eyeButtonStyle = {
@@ -163,10 +207,11 @@ const eyeButtonStyle = {
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  color: '#6b7280',
+  color: '#4c669a',
   background: 'none',
   border: 'none',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  padding: 0
 }
 
 const primaryButtonStyle = {
@@ -178,7 +223,8 @@ const primaryButtonStyle = {
   fontSize: 16,
   fontWeight: 'bold',
   border: 'none',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  marginTop: 24
 }
 
 const switchText = {
@@ -202,7 +248,8 @@ const statusStyle = (text) => ({
   padding: '8px 12px',
   borderRadius: 8,
   backgroundColor: text.includes('✅') ? '#d1fae5' : '#fee2e2',
-  color: text.includes('✅') ? '#065f46' : '#b91c1c'
+  color: text.includes('✅') ? '#065f46' : '#b91c1c',
+  textAlign: 'center'
 })
 
 export default Register

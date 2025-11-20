@@ -1,9 +1,10 @@
 import { useState } from 'react'
 
-function Login({ onLoginSuccess }) {
+function Login({ onLoginSuccess, onGoToRegister }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
@@ -30,9 +31,13 @@ function Login({ onLoginSuccess }) {
     }
   }
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
+  }
+
   return (
     <div style={authPageStyle}>
-      <div style={backButtonStyle}>
+      <div style={backButtonStyle} onClick={onGoToRegister}>
         <span className="material-symbols-outlined">arrow_back</span>
       </div>
       <div style={logoStyle}>
@@ -69,15 +74,22 @@ function Login({ onLoginSuccess }) {
               onChange={e => setPassword(e.target.value)}
               style={inputStyle}
               placeholder="Введите ваш пароль"
-              type="password"
+              type={showPassword ? "text" : "password"}
             />
-            <button style={eyeButtonStyle} className="material-symbols-outlined">visibility</button>
+            <button 
+              type="button"
+              style={eyeButtonStyle} 
+              onClick={togglePasswordVisibility}
+              className="material-symbols-outlined"
+            >
+              {showPassword ? "visibility_off" : "visibility"}
+            </button>
           </div>
         </div>
         <p style={forgotPasswordStyle}>Забыли пароль?</p>
         <button onClick={handleLogin} style={primaryButtonStyle}>Войти</button>
         <p style={switchText}>
-          Нет аккаунта? <button onClick={onLoginSuccess} style={linkStyle}>Зарегистрироваться</button>
+          Нет аккаунта? <button onClick={onGoToRegister} style={linkStyle}>Зарегистрироваться</button>
         </p>
         {status && <p style={statusStyle(status)}>{status}</p>}
       </div>
@@ -85,7 +97,7 @@ function Login({ onLoginSuccess }) {
   )
 }
 
-// Стили
+// Стили остаются без изменений, кроме добавления padding для eyeButtonStyle
 const authPageStyle = {
   height: '100vh',
   display: 'flex',
@@ -189,7 +201,8 @@ const eyeButtonStyle = {
   color: '#4c669a',
   background: 'none',
   border: 'none',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  padding: 0
 }
 
 const forgotPasswordStyle = {

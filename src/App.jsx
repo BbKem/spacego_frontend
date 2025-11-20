@@ -3,7 +3,7 @@ import Login from './components/Login'
 import Register from './components/Register'
 import Home from './components/Home'
 import AdDetail from './components/AdDetail'
-import CreateAd from './components/CreateAd' // Добавьте этот импорт
+import CreateAd from './components/CreateAd'
 
 function App() {
   const API_BASE = import.meta.env.DEV 
@@ -13,7 +13,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [token, setToken] = useState('')
   const [user, setUser] = useState(null)
-  const [currentPage, setCurrentPage] = useState('home') // home, login, register, ad-detail, create-ad
+  const [currentPage, setCurrentPage] = useState('home')
   const [selectedAd, setSelectedAd] = useState(null)
 
   useEffect(() => {
@@ -23,7 +23,7 @@ function App() {
       setIsLoggedIn(true)
       fetchUser()
     }
-  }, [])
+  }, [token])
 
   const fetchUser = async () => {
     try {
@@ -52,15 +52,37 @@ function App() {
   }
 
   const handleAdCreated = (ad) => {
-    // Можно обновить список объявлений или показать уведомление
     console.log('Новое объявление создано:', ad)
+  }
+
+  // Обработчики для навигации между экранами аутентификации
+  const goToLogin = () => setCurrentPage('login')
+  const goToRegister = () => setCurrentPage('register')
+  const handleLoginSuccess = () => {
+    setIsLoggedIn(true)
+    setCurrentPage('home')
+    // Получаем токен из localStorage и обновляем состояние
+    const savedToken = localStorage.getItem('token')
+    if (savedToken) {
+      setToken(savedToken)
+    }
   }
 
   if (!isLoggedIn) {
     return (
       <div style={pageStyle}>
-        {currentPage === 'login' && <Login onLoginSuccess={() => { setIsLoggedIn(true); setCurrentPage('home'); }} />}
-        {currentPage === 'register' && <Register onRegisterSuccess={() => { setCurrentPage('login'); }} />}
+        {currentPage === 'login' && (
+          <Login 
+            onLoginSuccess={handleLoginSuccess}
+            onGoToRegister={goToRegister}
+          />
+        )}
+        {currentPage === 'register' && (
+          <Register 
+            onRegisterSuccess={goToLogin}
+            onGoToLogin={goToLogin}
+          />
+        )}
         {currentPage === 'home' && (
           <div style={authLandingStyle}>
             <div style={logoStyle}>
@@ -75,8 +97,8 @@ function App() {
             <h1 style={authTitleStyle}>С возвращением!</h1>
             <p style={authSubtitleStyle}>Войдите в свой аккаунт Spacego</p>
             <div style={authButtonsStyle}>
-              <button onClick={() => setCurrentPage('login')} style={primaryButtonStyle}>Войти</button>
-              <p style={switchText}>Нет аккаунта? <button onClick={() => setCurrentPage('register')} style={linkStyle}>Зарегистрироваться</button></p>
+              <button onClick={goToLogin} style={primaryButtonStyle}>Войти</button>
+              <p style={switchText}>Нет аккаунта? <button onClick={goToRegister} style={linkStyle}>Зарегистрироваться</button></p>
             </div>
           </div>
         )}
@@ -105,7 +127,7 @@ function App() {
   )
 }
 
-// Стили (максимально близко к твоим HTML-примерам)
+// Стили остаются без изменений...
 const pageStyle = {
   display: 'flex',
   height: '100vh',

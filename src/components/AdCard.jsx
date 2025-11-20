@@ -1,35 +1,69 @@
 function AdCard({ ad, onClick }) {
+  // Получаем первую фотографию из массива photo_urls
+  const getFirstPhoto = () => {
+    if (ad.photo_urls && ad.photo_urls.length > 0) {
+      return ad.photo_urls[0];
+    }
+    // Для обратной совместимости с старыми объявлениями
+    if (ad.photo_url) {
+      return ad.photo_url;
+    }
+    return null;
+  };
+
+  // Форматируем цену (убираем копейки если их нет)
+  const formatPrice = (price) => {
+    if (!price) return '0 ₽';
+    
+    const numPrice = parseFloat(price);
+    if (Number.isInteger(numPrice)) {
+      return `${numPrice.toLocaleString('ru-RU')} ₽`;
+    } else {
+      return `${numPrice.toLocaleString('ru-RU', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      })} ₽`;
+    }
+  };
+
+  const firstPhoto = getFirstPhoto();
+
   return (
     <div onClick={onClick} style={cardStyle}>
       <div style={imageWrapperStyle}>
-        {ad.photo_url ? (
+        {firstPhoto ? (
           <img 
-            src={ad.photo_url} 
+            src={firstPhoto} 
             alt={ad.title}
             style={imageStyle}
+            onError={(e) => {
+              // Если изображение не загружается, показываем placeholder
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'block';
+            }}
           />
-        ) : (
-          <div style={imagePlaceholderStyle}></div>
-        )}
+        ) : null}
+        <div style={firstPhoto ? { display: 'none' } : imagePlaceholderStyle}></div>
         <button style={heartButtonStyle}>
           <span className="material-symbols-outlined" style={{ color: '#e11d48' }}>favorite</span>
         </button>
       </div>
       <div style={cardContentStyle}>
         <p style={cardTitleStyle}>{ad.title}</p>
-        <p style={cardPriceStyle}>{ad.price} ₽</p>
+        <p style={cardPriceStyle}>{formatPrice(ad.price)}</p>
         <p style={cardLocationStyle}>{ad.location || 'Казань, р-н Приволжский'}</p>
       </div>
     </div>
   )
 }
 
-// Добавьте этот стиль
+// Стили остаются без изменений
 const imageStyle = {
   width: '100%',
   height: '100%',
   objectFit: 'cover'
 }
+
 const cardStyle = {
   display: 'flex',
   flexDirection: 'column',
