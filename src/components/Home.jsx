@@ -1,70 +1,30 @@
 import { useState, useEffect } from 'react'
 import AdCard from './AdCard'
+import { useAppCache } from '../App'
+import logo from '../assets/logo.png'
 
-function Home({ user, onLogout, onViewAd, onCreateAd  }) {
-  const API_BASE = import.meta.env.DEV 
-    ? 'http://localhost:4000' 
-    : 'https://spacego-backend.onrender.com'
-
-  const [categories, setCategories] = useState([])
-  const [ads, setAds] = useState([])
+function Home({ user, onLogout, onViewAd, onCreateAd }) {
+  const { ads, categories, isLoading, refreshData } = useAppCache()
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [filteredAds, setFilteredAds] = useState([])
+  const [localLoading, setLocalLoading] = useState(false)
 
   useEffect(() => {
-    loadCategories()
-    loadAds()
-  }, [])
-
-  useEffect(() => {
-    // Фильтрация по имени категории
-    if (selectedCategory) {
-      const filtered = ads.filter(ad => ad.category_name === selectedCategory.name)
-      setFilteredAds(filtered)
-    } else {
-      setFilteredAds(ads)
+    if (ads) {
+      if (selectedCategory) {
+        const filtered = ads.filter(ad => ad.category_name === selectedCategory.name)
+        setFilteredAds(filtered)
+      } else {
+        setFilteredAds(ads)
+      }
     }
   }, [selectedCategory, ads])
 
-  const loadCategories = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/categories`)
-      const data = await res.json()
-      setCategories(data)
-    } catch (err) {
-      console.error('Ошибка загрузки категорий')
-    }
+  const handleRefresh = async () => {
+    setLocalLoading(true)
+    await refreshData()
+    setLocalLoading(false)
   }
-
- // В компоненте Home, в функции loadAds добавьте обработку photo_urls:
-const loadAds = async () => {
-  try {
-    const res = await fetch(`${API_BASE}/api/ads`)
-    const data = await res.json()
-    
-    // Обрабатываем объявления с несколькими фото
-    const processedAds = data.map(ad => {
-      // Если photo_url содержит JSON-массив, парсим его
-      if (ad.photo_url && ad.photo_url.startsWith('[')) {
-        try {
-          ad.photo_urls = JSON.parse(ad.photo_url);
-        } catch (e) {
-          ad.photo_urls = [];
-        }
-      } else if (ad.photo_url) {
-        // Для обратной совместимости со старыми объявлениями
-        ad.photo_urls = [ad.photo_url];
-      } else {
-        ad.photo_urls = [];
-      }
-      return ad;
-    });
-    
-    setAds(processedAds);
-  } catch (err) {
-    console.error('Ошибка загрузки объявлений')
-  }
-}
 
   const handleCategoryClick = (category) => {
     if (selectedCategory && selectedCategory.id === category.id) {
@@ -78,15 +38,37 @@ const loadAds = async () => {
     setSelectedCategory(null)
   }
 
+  const displayAds = filteredAds || []
+  const displayCategories = categories || []
+
   return (
     <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh' }}>
       {/* TopAppBar */}
       <div style={topAppBarStyle}>
         <div style={{ width: 48 }}></div>
-        <h2 style={appTitleStyle}>Spacego</h2>
-        <button style={notificationButtonStyle}>
-          <span className="material-symbols-outlined">notifications</span>
-        </button>
+        <div style={appTitleContainerStyle}>
+          <img src={logo} alt="Spacego" style={appLogoStyle} />
+        </div>
+        <div style={headerButtonsStyle}>
+          <button 
+            style={refreshButtonStyle} 
+            onClick={handleRefresh}
+            disabled={localLoading}
+            title="Обновить"
+          >
+            <span 
+              className="material-symbols-outlined"
+              style={{ 
+                animation: localLoading ? 'spin 1s linear infinite' : 'none' 
+              }}
+            >
+              refresh
+            </span>
+          </button>
+          <button style={notificationButtonStyle}>
+            <span className="material-symbols-outlined">notifications</span>
+          </button>
+        </div>
       </div>
 
       {/* SearchBar */}
@@ -96,6 +78,7 @@ const loadAds = async () => {
           <input
             placeholder="Search for products"
             style={searchInputStyle}
+            maxLength="100"
           />
         </div>
       </div>
@@ -110,7 +93,7 @@ const loadAds = async () => {
           Все
         </div>
         
-        {categories.map(cat => (
+        {displayCategories.map(cat => (
           <div 
             key={cat.id} 
             style={selectedCategory && selectedCategory.id === cat.id ? chipActiveStyle : chipStyle}
@@ -133,18 +116,24 @@ const loadAds = async () => {
 
       {/* Grid */}
       <div style={gridStyle}>
-        {filteredAds.length > 0 ? (
-          filteredAds.map(ad => (
+        {(isLoading || localLoading) ? (
+          Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} style={skeletonCardStyle}>
+              <div style={skeletonImageStyle}></div>
+              <div style={skeletonTextStyle}></div>
+              <div style={skeletonTextShortStyle}></div>
+            </div>
+          ))
+        ) : displayAds.length > 0 ? (
+          displayAds.map(ad => (
             <AdCard key={ad.id} ad={ad} onClick={() => onViewAd(ad)} />
           ))
         ) : (
           <div style={noResultsStyle}>
             {selectedCategory ? (
               <p>Нет объявлений в категории "{selectedCategory.name}"</p>
-            ) : ads.length === 0 ? (
-              <p>Нет объявлений</p>
             ) : (
-              <p>Загрузка...</p>
+              <p>Нет объявлений</p>
             )}
           </div>
         )}
@@ -182,21 +171,48 @@ const loadAds = async () => {
   )
 }
 
-// Стили остаются без изменений
 const topAppBarStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '16px 20px',
+  padding: '0 20px',
   backgroundColor: 'white',
-  borderBottom: '1px solid #eee'
+  borderBottom: '1px solid #eee',
+  height: '100px', 
+  minHeight: '100px', 
+  boxSizing: 'border-box' 
 }
 
-const appTitleStyle = {
-  fontSize: 18,
-  fontWeight: 'bold',
-  color: '#0d121b',
-  textAlign: 'center'
+const appTitleContainerStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px'
+}
+
+const appLogoStyle = {
+  width: 250,
+  height: 250,
+  objectFit: 'contain'
+}
+
+const headerButtonsStyle = {
+  display: 'flex',
+  gap: '8px',
+  alignItems: 'center'
+}
+
+const refreshButtonStyle = {
+  width: 40,
+  height: 40,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  background: 'none',
+  border: 'none',
+  color: '#46A8C1',
+  cursor: 'pointer',
+  borderRadius: '20px',
+  transition: 'background-color 0.2s ease'
 }
 
 const notificationButtonStyle = {
@@ -207,8 +223,10 @@ const notificationButtonStyle = {
   alignItems: 'center',
   background: 'none',
   border: 'none',
-  color: '#0d121b',
-  cursor: 'pointer'
+  color: '#46A8C1',
+  cursor: 'pointer',
+  borderRadius: '20px',
+  transition: 'background-color 0.2s ease'
 }
 
 const searchContainerStyle = {
@@ -225,7 +243,7 @@ const searchWrapperStyle = {
 
 const searchIconStyle = {
   marginLeft: 12,
-  color: '#4c669a',
+  color: '#46A8C1',
   fontSize: 20
 }
 
@@ -249,7 +267,7 @@ const chipsContainerStyle = {
 const chipStyle = {
   padding: '8px 16px',
   backgroundColor: 'white',
-  color: '#4c669a',
+  color: '#46A8C1',
   border: '1px solid #cfd7e7',
   borderRadius: 8,
   fontSize: 14,
@@ -261,9 +279,9 @@ const chipStyle = {
 
 const chipActiveStyle = {
   ...chipStyle,
-  backgroundColor: '#135bec',
+  backgroundColor: '#46A8C1',
   color: 'white',
-  border: '1px solid #135bec'
+  border: '1px solid #46A8C1'
 }
 
 const filterIndicatorStyle = {
@@ -271,7 +289,7 @@ const filterIndicatorStyle = {
   justifyContent: 'space-between',
   alignItems: 'center',
   padding: '12px 16px',
-  backgroundColor: '#e3f2fd',
+  backgroundColor: 'rgba(70, 168, 193, 0.1)',
   margin: '0 16px 12px',
   borderRadius: 8,
   fontSize: 14,
@@ -281,7 +299,7 @@ const filterIndicatorStyle = {
 const clearFilterStyle = {
   background: 'none',
   border: 'none',
-  color: '#135bec',
+  color: '#46A8C1',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -310,14 +328,15 @@ const fabStyle = {
   width: 56,
   height: 56,
   borderRadius: 28,
-  backgroundColor: '#E67E22',
+  backgroundColor: '#50B79C',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   color: 'white',
   border: 'none',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-  cursor: 'pointer'
+  boxShadow: '0 4px 12px rgba(80, 183, 156, 0.3)',
+  cursor: 'pointer',
+  transition: 'transform 0.2s ease'
 }
 
 const bottomNavStyle = {
@@ -340,17 +359,54 @@ const navItemStyle = {
   gap: 4,
   color: '#6b7280',
   fontSize: 10,
-  cursor: 'pointer'
+  cursor: 'pointer',
+  transition: 'color 0.2s ease'
 }
 
 const navItemActiveStyle = {
   ...navItemStyle,
-  color: '#135bec'
+  color: '#46A8C1'
 }
 
 const navLabelStyle = {
   fontSize: 10,
   fontWeight: '500'
+}
+
+// Скелетоны остаются без изменений
+const skeletonCardStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+  backgroundColor: 'white',
+  borderRadius: 12,
+  overflow: 'hidden',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+  animation: 'pulse 1.5s ease-in-out infinite'
+}
+
+const skeletonImageStyle = {
+  width: '100%',
+  height: '158px',
+  backgroundColor: '#e5e7eb',
+  borderRadius: '12px 12px 0 0'
+}
+
+const skeletonTextStyle = {
+  height: '16px',
+  backgroundColor: '#e5e7eb',
+  borderRadius: 4,
+  margin: '0 12px',
+  marginBottom: '4px'
+}
+
+const skeletonTextShortStyle = {
+  height: '12px',
+  backgroundColor: '#e5e7eb',
+  borderRadius: 4,
+  margin: '0 12px',
+  marginBottom: '8px',
+  width: '60%'
 }
 
 export default Home

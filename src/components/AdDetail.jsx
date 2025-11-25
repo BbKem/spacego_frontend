@@ -3,13 +3,13 @@ import { useState, useEffect } from 'react';
 function AdDetail({ ad, onBack }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [seller, setSeller] = useState(null);
-  
+  const [imageErrors, setImageErrors] = useState({});
+
   // Получаем массив фотографий
   const getPhotos = () => {
     if (ad?.photo_urls && ad.photo_urls.length > 0) {
       return ad.photo_urls;
     }
-    // Для обратной совместимости со старыми объявлениями
     if (ad?.photo_url) {
       return [ad.photo_url];
     }
@@ -33,7 +33,7 @@ function AdDetail({ ad, onBack }) {
     return `${Math.floor(diffDays / 365)} года назад`;
   };
 
-  // Форматируем цену (убираем копейки если их нет)
+  // Форматируем цену
   const formatPrice = (price) => {
     if (!price) return '0 ₽';
     
@@ -47,6 +47,60 @@ function AdDetail({ ad, onBack }) {
       })} ₽`;
     }
   };
+
+// Улучшенная функция форматирования адреса для детального просмотра
+const formatLocationForDetail = (location) => {
+  if (!location || location.trim() === '') {
+    return [{ text: 'Местоположение не указано', type: 'empty' }];
+  }
+  
+  // Разбиваем на компоненты
+  const parts = location.split(', ');
+  
+  // Классифицируем компоненты адреса
+  let country = '';
+  let city = '';
+  let street = '';
+  let house = '';
+  
+  // Проходим по частям в обратном порядке для определения страны и города
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i];
+    
+    if (part.includes('д.')) {
+      house = part;
+    } else if (part.includes('ул.')) {
+      street = part;
+    } else if (
+      !part.match(/^\d{5,6}$/) && // не почтовый индекс
+      !part.includes('район') &&
+      !part.includes('область') &&
+      !part.includes('округ') &&
+      !part.includes('муниципальный')
+    ) {
+      // Первый подходящий элемент (с конца) - страна, следующий - город
+      if (!country) {
+        country = part;
+      } else if (!city) {
+        city = part;
+      }
+    }
+  }
+  
+  // Собираем в правильной последовательности: страна, город, улица, дом
+  const resultParts = [];
+  if (country) resultParts.push({ text: country, type: 'country' });
+  if (city) resultParts.push({ text: city, type: 'city' });
+  if (street) resultParts.push({ text: street, type: 'street' });
+  if (house) resultParts.push({ text: house, type: 'house' });
+  
+  // Если не удалось классифицировать, возвращаем оригинальный адрес
+  if (resultParts.length === 0) {
+    return parts.map(part => ({ text: part, type: 'regular' }));
+  }
+  
+  return resultParts;
+};
 
   // Получаем информацию о продавце
   const fetchSellerInfo = async (userId) => {
@@ -75,8 +129,9 @@ function AdDetail({ ad, onBack }) {
 
   const photos = getPhotos();
   const totalPhotos = photos.length;
+  const hasLocation = ad?.location && ad.location.trim() !== '';
+  const formattedLocation = formatLocationForDetail(ad?.location);
 
-  // Сбрасываем индекс при смене объявления и загружаем данные продавца
   useEffect(() => {
     setCurrentPhotoIndex(0);
     if (ad?.user_id) {
@@ -94,6 +149,10 @@ function AdDetail({ ad, onBack }) {
 
   const goToPhoto = (index) => {
     setCurrentPhotoIndex(index);
+  };
+
+  const handleImageError = (index) => {
+    setImageErrors(prev => ({ ...prev, [index]: true }));
   };
 
   // Генерируем инициалы из email
@@ -117,6 +176,14 @@ function AdDetail({ ad, onBack }) {
     return username;
   };
 
+  // Открываем адрес в Google Maps
+  const openInMaps = () => {
+    if (!hasLocation) return;
+    
+    const encodedAddress = encodeURIComponent(ad.location);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+  };
+
   return (
     <div style={detailPageStyle}>
       {/* Header */}
@@ -131,17 +198,14 @@ function AdDetail({ ad, onBack }) {
 
       {/* Image Slider */}
       <div style={detailImageWrapperStyle}>
-        {totalPhotos > 0 ? (
+        {totalPhotos > 0 && !imageErrors[currentPhotoIndex] ? (
           <>
             <div style={imageContainerStyle}>
               <img 
                 src={photos[currentPhotoIndex]} 
                 alt={`${ad?.title || 'Объявление'} - фото ${currentPhotoIndex + 1}`}
                 style={detailImageStyle}
-                onError={(e) => {
-                  // Если изображение не загружается, показываем placeholder
-                  e.target.style.display = 'none';
-                }}
+                onError={() => handleImageError(currentPhotoIndex)}
               />
             </div>
             
@@ -176,7 +240,7 @@ function AdDetail({ ad, onBack }) {
         </button>
         
         {/* Счетчик фото */}
-        {totalPhotos > 0 && (
+        {totalPhotos > 0 && !imageErrors[currentPhotoIndex] && (
           <div style={imageCounterStyle}>
             {currentPhotoIndex + 1} / {totalPhotos}
           </div>
@@ -218,11 +282,41 @@ function AdDetail({ ad, onBack }) {
 
         <div style={sectionStyle}>
           <h3 style={sectionTitleStyle}>Местоположение</h3>
-          <div style={locationRowStyle}>
-            <span className="material-symbols-outlined" style={{ color: '#6b7280' }}>location_on</span>
-            <span>{ad?.location || 'Местоположение не указано'}</span>
+          <div style={locationCardStyle}>
+            <div style={locationRowStyle}>
+              <span className="material-symbols-outlined" style={locationIconStyle}>
+                location_on
+              </span>
+              <div style={locationTextStyle}>
+                <div style={locationAddressStyle}>
+                  {formattedLocation.map((part, index) => (
+                    <span
+                      key={index}
+                      style={
+                        part.type === 'empty' ? locationEmptyStyle :
+                        part.type === 'house' ? locationHouseStyle :
+                        part.type === 'street' ? locationStreetStyle :
+                        part.type === 'city' ? locationCityStyle :
+                        part.type === 'country' ? locationCountryStyle :
+                        locationRegularStyle
+                      }
+                    >
+                      {part.text}
+                      {index < formattedLocation.length - 1 ? ', ' : ''}
+                    </span>
+                  ))}
+                </div>
+                {hasLocation && (
+                  <button onClick={openInMaps} style={mapLinkStyle}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                      open_in_new
+                    </span>
+                    <span>Открыть в Картах</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-          <div style={mapPlaceholderStyle}></div>
         </div>
 
         <div style={sectionStyle}>
@@ -258,55 +352,54 @@ function AdDetail({ ad, onBack }) {
         </button>
       </div>
     </div>
-  )
+  );
 }
 
-// Стили остаются такими же как в предыдущей версии
+// Стили с обновленной цветовой палитрой
 const detailPageStyle = {
   backgroundColor: '#f6f6f8',
   minHeight: '100vh',
   display: 'flex',
-  flexDirection: 'column',
-  maxWidth: '100%',
-  overflowX: 'hidden'
-}
+  flexDirection: 'column'
+};
 
 const detailHeaderStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '16px 16px 0',
+  padding: '16px',
   backgroundColor: 'white',
-  position: 'sticky',
-  top: 0,
-  zIndex: 10
-}
+  borderBottom: '1px solid #eee'
+};
 
 const backButtonStyle = {
   width: 40,
   height: 40,
-  borderRadius: 20,
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  cursor: 'pointer',
+  background: 'none',
   border: 'none',
-  backgroundColor: 'transparent'
-}
+  cursor: 'pointer',
+  color: '#46A8C1'
+};
 
 const shareButtonStyle = {
   ...backButtonStyle
-}
+};
 
 const detailImageWrapperStyle = {
   position: 'relative',
   backgroundColor: '#e5e7eb',
-  margin: 0,
-  overflow: 'hidden',
-  height: '60vh',
-  maxHeight: '500px',
-  minHeight: '300px'
-}
+  height: '300px'
+};
+
+const detailImageStyle = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'contain',
+  backgroundColor: '#f6f6f8'
+};
 
 const imageContainerStyle = {
   width: '100%',
@@ -314,16 +407,8 @@ const imageContainerStyle = {
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  backgroundColor: '#f8f9fa'
-}
-
-const detailImageStyle = {
-  width: 'auto',
-  height: 'auto',
-  maxWidth: '100%',
-  maxHeight: '100%',
-  objectFit: 'contain'
-}
+  backgroundColor: '#f6f6f8'
+};
 
 const detailImagePlaceholderStyle = {
   width: '100%',
@@ -332,12 +417,12 @@ const detailImagePlaceholderStyle = {
   justifyContent: 'center',
   alignItems: 'center',
   backgroundColor: '#e5e7eb'
-}
+};
 
 const placeholderIconStyle = {
   fontSize: 64,
   color: '#9ca3af'
-}
+};
 
 const navButtonStyle = {
   position: 'absolute',
@@ -347,16 +432,13 @@ const navButtonStyle = {
   height: 40,
   borderRadius: 20,
   backgroundColor: 'rgba(255,255,255,0.9)',
-  backdropFilter: 'blur(4px)',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   border: 'none',
   cursor: 'pointer',
-  color: '#0d121b',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-  zIndex: 5
-}
+  color: '#0d121b'
+};
 
 const detailHeartButtonStyle = {
   position: 'absolute',
@@ -366,16 +448,12 @@ const detailHeartButtonStyle = {
   height: 40,
   borderRadius: 20,
   backgroundColor: 'rgba(255,255,255,0.9)',
-  backdropFilter: 'blur(4px)',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   border: 'none',
-  cursor: 'pointer',
-  color: '#0d121b',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  zIndex: 5
-}
+  cursor: 'pointer'
+};
 
 const imageCounterStyle = {
   position: 'absolute',
@@ -385,10 +463,8 @@ const imageCounterStyle = {
   color: 'white',
   padding: '4px 12px',
   borderRadius: 20,
-  fontSize: 12,
-  backdropFilter: 'blur(4px)',
-  zIndex: 5
-}
+  fontSize: 12
+};
 
 const dotsStyle = {
   display: 'flex',
@@ -397,9 +473,8 @@ const dotsStyle = {
   position: 'absolute',
   bottom: 20,
   left: 0,
-  right: 0,
-  zIndex: 5
-}
+  right: 0
+};
 
 const dotStyle = {
   width: 8,
@@ -407,60 +482,54 @@ const dotStyle = {
   borderRadius: 4,
   backgroundColor: 'white',
   opacity: 0.5,
-  cursor: 'pointer',
-  transition: 'all 0.2s ease'
-}
+  cursor: 'pointer'
+};
 
 const dotActiveStyle = {
   ...dotStyle,
   opacity: 1,
   width: 20
-}
+};
 
 const detailContentStyle = {
   padding: '16px',
   paddingBottom: '80px'
-}
+};
 
 const detailTitleStyle = {
-  fontSize: '24px',
+  fontSize: '20px',
   fontWeight: 'bold',
   color: '#0d121b',
-  marginTop: 0,
-  marginBottom: '8px',
-  lineHeight: 1.2
-}
+  margin: '0 0 8px 0'
+};
 
 const detailPriceStyle = {
-  fontSize: '22px',
+  fontSize: '18px',
   fontWeight: 'bold',
-  color: '#135bec',
-  marginTop: 0,
-  marginBottom: '8px'
-}
+  color: '#46A8C1',
+  margin: '0 0 8px 0'
+};
 
 const detailMetaStyle = {
   fontSize: '14px',
   color: '#6b7280',
-  marginTop: 0,
-  marginBottom: '16px'
-}
+  margin: '0 0 16px 0'
+};
 
 const tagsStyle = {
   display: 'flex',
   gap: 8,
-  marginBottom: '16px',
-  flexWrap: 'wrap'
-}
+  marginBottom: '16px'
+};
 
 const tagPrimaryStyle = {
   padding: '6px 12px',
-  backgroundColor: 'rgba(19, 91, 236, 0.2)',
-  color: '#135bec',
+  backgroundColor: 'rgba(70, 168, 193, 0.2)',
+  color: '#46A8C1',
   borderRadius: 20,
   fontSize: 12,
   fontWeight: '500'
-}
+};
 
 const tagGrayStyle = {
   padding: '6px 12px',
@@ -469,53 +538,112 @@ const tagGrayStyle = {
   borderRadius: 20,
   fontSize: 12,
   fontWeight: '500'
-}
+};
 
 const sectionStyle = {
   marginTop: '24px'
-}
+};
 
 const sectionTitleStyle = {
-  fontSize: '18px',
+  fontSize: '16px',
   fontWeight: 'bold',
   color: '#0d121b',
   marginBottom: '12px'
-}
+};
 
 const sectionTextStyle = {
-  fontSize: '16px',
+  fontSize: '14px',
   color: '#4b5563',
   lineHeight: 1.5
-}
+};
+
+const locationCardStyle = {
+  backgroundColor: 'white',
+  borderRadius: 12,
+  padding: 16
+};
 
 const locationRowStyle = {
   display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  color: '#4b5563',
-  marginBottom: '12px'
+  alignItems: 'flex-start',
+  gap: 12
+};
+
+const locationIconStyle = {
+  color: '#46A8C1',
+  fontSize: 20,
+  flexShrink: 0,
+  marginTop: 2
+};
+
+const locationTextStyle = {
+  flex: 1
+};
+
+const locationAddressStyle = {
+  fontSize: 16,
+  color: '#0d121b',
+  fontWeight: '500',
+  marginBottom: 8,
+  lineHeight: 1.4
+};
+
+const locationCountryStyle = {
+  color: '#0d121b',
+  fontSize: '16px'
 }
 
-const mapPlaceholderStyle = {
-  height: '120px',
-  backgroundColor: '#e5e7eb',
-  borderRadius: '12px'
+const locationCityStyle = {
+  color: '#0d121b',
+  fontSize: '16px'
 }
+
+const locationStreetStyle = {
+  color: '#0d121b',
+  fontSize: '16px'
+}
+
+const locationHouseStyle = {
+  color: '#0d121b',
+  fontSize: '16px'
+}
+
+const locationRegularStyle = {
+  color: '#0d121b',
+  fontSize: '16px'
+}
+
+const locationEmptyStyle = {
+  color: '#0d121b',
+  fontSize: '16px',
+  fontStyle: 'italic'
+}
+
+const mapLinkStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  backgroundColor: 'transparent',
+  border: 'none',
+  color: '#46A8C1',
+  fontSize: 14,
+  cursor: 'pointer',
+  padding: 0
+};
 
 const sellerCardStyle = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
   backgroundColor: '#f0f0f0',
-  borderRadius: '16px',
+  borderRadius: '12px',
   padding: '16px'
-}
+};
 
 const sellerAvatarStyle = {
   width: 48,
   height: 48,
   borderRadius: 24,
-  backgroundColor: '#135bec',
+  backgroundColor: '#46A8C1',
   color: 'white',
   display: 'flex',
   justifyContent: 'center',
@@ -523,13 +651,13 @@ const sellerAvatarStyle = {
   fontWeight: 'bold',
   fontSize: '16px',
   marginRight: '12px'
-}
+};
 
 const sellerNameStyle = {
   fontWeight: 'bold',
   color: '#0d121b',
   fontSize: '16px'
-}
+};
 
 const sellerRatingStyle = {
   display: 'flex',
@@ -538,7 +666,7 @@ const sellerRatingStyle = {
   fontSize: '14px',
   color: '#6b7280',
   marginTop: '4px'
-}
+};
 
 const detailFooterStyle = {
   position: 'fixed',
@@ -550,9 +678,9 @@ const detailFooterStyle = {
   padding: '16px',
   borderTop: '1px solid #eee',
   backgroundColor: 'white'
-}
+};
 
-const footerButtonStyle = {
+const footerButtonPrimaryStyle = {
   flex: 1,
   height: '48px',
   borderRadius: '12px',
@@ -563,19 +691,25 @@ const footerButtonStyle = {
   fontSize: '16px',
   fontWeight: 'bold',
   border: 'none',
-  cursor: 'pointer'
-}
-
-const footerButtonPrimaryStyle = {
-  ...footerButtonStyle,
-  backgroundColor: '#135bec',
+  cursor: 'pointer',
+  backgroundColor: '#46A8C1',
   color: 'white'
-}
+};
 
 const footerButtonSecondaryStyle = {
-  ...footerButtonStyle,
-  backgroundColor: 'rgba(19, 91, 236, 0.2)',
-  color: '#135bec'
-}
+  flex: 1,
+  height: '48px',
+  borderRadius: '12px',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: '8px',
+  fontSize: '16px',
+  fontWeight: 'bold',
+  border: 'none',
+  cursor: 'pointer',
+  backgroundColor: 'rgba(70, 168, 193, 0.2)',
+  color: '#46A8C1'
+};
 
-export default AdDetail
+export default AdDetail;

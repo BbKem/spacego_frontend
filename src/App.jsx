@@ -1,11 +1,128 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, createContext, useContext } from 'react'
 import Login from './components/Login'
 import Register from './components/Register'
 import Home from './components/Home'
 import AdDetail from './components/AdDetail'
 import CreateAd from './components/CreateAd'
+import logo from './assets/logo.png'
 
-function App() {
+// Создаем контекст для кэширования
+const AppCacheContext = createContext()
+
+export const useAppCache = () => {
+  const context = useContext(AppCacheContext)
+  if (!context) {
+    throw new Error('useAppCache must be used within AppCacheProvider')
+  }
+  return context
+}
+
+const AppCacheProvider = ({ children }) => {
+  const API_BASE = import.meta.env.DEV 
+    ? 'http://localhost:4000' 
+    : 'https://spacego-backend.onrender.com'
+
+  const [cache, setCache] = useState({
+    ads: null,
+    categories: null,
+    lastUpdated: null
+  })
+
+  // Загружаем данные при первом рендере
+  useEffect(() => {
+    loadInitialData()
+  }, [])
+
+  const loadInitialData = async () => {
+    if (cache.ads && cache.categories) return // Данные уже загружены
+
+    try {
+      const [adsData, categoriesData] = await Promise.all([
+        fetchAds(),
+        fetchCategories()
+      ])
+
+      setCache({
+        ads: adsData,
+        categories: categoriesData,
+        lastUpdated: Date.now()
+      })
+    } catch (error) {
+      console.error('Ошибка загрузки данных:', error)
+    }
+  }
+
+  const fetchAds = async () => {
+    const res = await fetch(`${API_BASE}/api/ads`)
+    const data = await res.json()
+    
+    return data.map(ad => {
+      if (ad.photo_url && ad.photo_url.startsWith('[')) {
+        try {
+          ad.photo_urls = JSON.parse(ad.photo_url)
+        } catch (e) {
+          ad.photo_urls = []
+        }
+      } else if (ad.photo_url) {
+        ad.photo_urls = [ad.photo_url]
+      } else {
+        ad.photo_urls = []
+      }
+      return ad
+    })
+  }
+
+  const fetchCategories = async () => {
+    const res = await fetch(`${API_BASE}/api/categories`)
+    return await res.json()
+  }
+
+  const refreshData = async () => {
+    try {
+      const [adsData, categoriesData] = await Promise.all([
+        fetchAds(),
+        fetchCategories()
+      ])
+
+      setCache({
+        ads: adsData,
+        categories: categoriesData,
+        lastUpdated: Date.now()
+      })
+      
+      return { ads: adsData, categories: categoriesData }
+    } catch (error) {
+      console.error('Ошибка обновления данных:', error)
+      throw error
+    }
+  }
+
+  const addNewAd = (newAd) => {
+    if (cache.ads) {
+      setCache(prev => ({
+        ...prev,
+        ads: [newAd, ...prev.ads]
+      }))
+    }
+  }
+
+  const value = {
+    ads: cache.ads,
+    categories: cache.categories,
+    lastUpdated: cache.lastUpdated,
+    refreshData,
+    addNewAd,
+    isLoading: !cache.ads || !cache.categories
+  }
+
+  return (
+    <AppCacheContext.Provider value={value}>
+      {children}
+    </AppCacheContext.Provider>
+  )
+}
+
+function AppContent() {
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
     : 'https://spacego-backend.onrender.com'
@@ -15,6 +132,8 @@ function App() {
   const [user, setUser] = useState(null)
   const [currentPage, setCurrentPage] = useState('home')
   const [selectedAd, setSelectedAd] = useState(null)
+
+  const { refreshData, addNewAd } = useAppCache()
 
   useEffect(() => {
     const saved = localStorage.getItem('token')
@@ -53,6 +172,9 @@ function App() {
 
   const handleAdCreated = (ad) => {
     console.log('Новое объявление создано:', ad)
+    // Добавляем новое объявление в кэш
+    addNewAd(ad)
+    setCurrentPage('home')
   }
 
   // Обработчики для навигации между экранами аутентификации
@@ -85,16 +207,10 @@ function App() {
         )}
         {currentPage === 'home' && (
           <div style={authLandingStyle}>
+            {/* Логотип */}
             <div style={logoStyle}>
-              <svg style={logoSvgStyle} fill="none" viewBox="0 0 24 24">
-                <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="white" strokeWidth="2" />
-                <path d="M2 7L12 12" stroke="white" strokeWidth="2" />
-                <path d="M12 22V12" stroke="white" strokeWidth="2" />
-                <path d="M22 7L12 12" stroke="white" strokeWidth="2" />
-                <path d="M17 4.5L7 9.5" stroke="white" strokeWidth="2" />
-              </svg>
+              <img src={logo} alt="Spacego" style={logoImageStyle} />
             </div>
-            <h1 style={authTitleStyle}>С возвращением!</h1>
             <p style={authSubtitleStyle}>Войдите в свой аккаунт Spacego</p>
             <div style={authButtonsStyle}>
               <button onClick={goToLogin} style={primaryButtonStyle}>Войти</button>
@@ -127,7 +243,15 @@ function App() {
   )
 }
 
-// Стили остаются без изменений...
+function App() {
+  return (
+    <AppCacheProvider>
+      <AppContent />
+    </AppCacheProvider>
+  )
+}
+
+// Обновленные стили с новой цветовой палитрой
 const pageStyle = {
   display: 'flex',
   height: '100vh',
@@ -147,34 +271,24 @@ const authLandingStyle = {
 }
 
 const logoStyle = {
-  width: 64,
-  height: 64,
-  borderRadius: 16,
-  backgroundColor: '#135bec',
+  width: 120,
+  height: 120,
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   marginBottom: 32
 }
 
-const logoSvgStyle = {
-  width: 32,
-  height: 32,
-  color: 'white'
-}
-
-const authTitleStyle = {
-  fontSize: 32,
-  fontWeight: 'bold',
-  textAlign: 'center',
-  marginBottom: 8,
-  color: '#0d121b'
+const logoImageStyle = {
+  width: 500,
+  height: 500,
+  objectFit: 'contain'
 }
 
 const authSubtitleStyle = {
   fontSize: 16,
   textAlign: 'center',
-  color: '#4c669a',
+  color: '#46A8C1',
   marginBottom: 32
 }
 
@@ -189,7 +303,7 @@ const primaryButtonStyle = {
   height: 56,
   width: '100%',
   borderRadius: 12,
-  backgroundColor: '#135bec',
+  backgroundColor: '#46A8C1',
   color: 'white',
   fontSize: 16,
   fontWeight: 'bold',
@@ -204,7 +318,7 @@ const switchText = {
 }
 
 const linkStyle = {
-  color: '#135bec',
+  color: '#46A8C1',
   fontWeight: 'bold',
   background: 'none',
   border: 'none',
