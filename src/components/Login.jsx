@@ -42,107 +42,89 @@ function Login({ onLoginSuccess, onGoToRegister }) {
     setShowPassword(!showPassword)
   }
 
-  // ✅ ИСПРАВЛЕНО: добавлены скобки ( и ) для JSX
   return (
-    <div style={containerStyle}>
-      <div style={authPageStyle}>
-        {isLoading && (
-          <div style={loadingOverlayStyle}>
-            <div style={loadingSpinnerStyle}>
-              <div style={spinnerStyle}></div>
-              <p style={loadingTextStyle}>Вход...</p>
-            </div>
+    <div style={authPageStyle}>
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div style={loadingOverlayStyle}>
+          <div style={loadingSpinnerStyle}>
+            <div style={spinnerStyle}></div>
+            <p style={loadingTextStyle}>Вход...</p>
           </div>
-        )}
-        
-        <div style={backButtonStyle} onClick={onGoToRegister}>
-          <span className="material-symbols-outlined">arrow_back</span>
         </div>
-        
-        <div style={logoContainerStyle}>
-          <img src={logo} alt="Spacego" style={logoImageStyle} />
-        </div>
+      )}
       
-        <p style={formSubtitleStyle}>Войдите в свой аккаунт Spacego</p>
-        
-        <div style={responsiveFormContainerStyle}>
-          <div style={inputGroupStyle}>
-            <label style={labelStyle}>Логин или Email</label>
-            <div style={inputWrapperStyle}>
-              <span style={inputIconStyle} className="material-symbols-outlined">person</span>
-              <input
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                style={inputStyle}
-                placeholder="Введите ваш логин или email"
-                type="email"
-                maxLength="100"
-              />
-            </div>
+      <div style={backButtonStyle} onClick={onGoToRegister}>
+        <span className="material-symbols-outlined">arrow_back</span>
+      </div>
+      
+      {/* Логотип */}
+      <div style={logoContainerStyle}>
+        <img src={logo} alt="Spacego" style={logoImageStyle} />
+      </div>
+    
+      <p style={formSubtitleStyle}>Войдите в свой аккаунт Spacego</p>
+      
+      <div style={formContainerStyle}>
+        <div style={inputGroupStyle}>
+          <label style={labelStyle}>Логин или Email</label>
+          <div style={inputWrapperStyle}>
+            <span style={inputIconStyle} className="material-symbols-outlined">person</span>
+            <input
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              style={inputStyle}
+              placeholder="Введите ваш логин или email"
+              type="email"
+              maxLength="100"
+            />
           </div>
-          
-          <div style={inputGroupStyle}>
-            <label style={labelStyle}>Пароль</label>
-            <div style={inputWrapperStyle}>
-              <span style={inputIconStyle} className="material-symbols-outlined">lock</span>
-              <input
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                style={inputStyle}
-                placeholder="Введите ваш пароль"
-                type={showPassword ? "text" : "password"}
-                maxLength="50"
-              />
-              <button 
-                type="button"
-                style={eyeButtonStyle} 
-                onClick={togglePasswordVisibility}
-                className="material-symbols-outlined"
-              >
-                {showPassword ? "visibility_off" : "visibility"}
-              </button>
-            </div>
-          </div>
-          
-          <p style={forgotPasswordStyle}>Забыли пароль?</p>
-          
-          <button 
-            onClick={handleLogin} 
-            style={primaryButtonStyle}
-            disabled={isLoading}
-          >
-            {isLoading ? 'Вход...' : 'Войти'}
-          </button>
-          
-          <p style={switchText}>
-            Нет аккаунта? <button onClick={onGoToRegister} style={linkStyle}>Зарегистрироваться</button>
-          </p>
-          
-          {status && !isLoading && <p style={statusStyle(status)}>{status}</p>}
         </div>
+        
+        <div style={inputGroupStyle}>
+          <label style={labelStyle}>Пароль</label>
+          <div style={inputWrapperStyle}>
+            <span style={inputIconStyle} className="material-symbols-outlined">lock</span>
+            <input
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              style={inputStyle}
+              placeholder="Введите ваш пароль"
+              type={showPassword ? "text" : "password"}
+              maxLength="50"
+            />
+            <button 
+              type="button"
+              style={eyeButtonStyle} 
+              onClick={togglePasswordVisibility}
+              className="material-symbols-outlined"
+            >
+              {showPassword ? "visibility_off" : "visibility"}
+            </button>
+          </div>
+        </div>
+        
+        <p style={forgotPasswordStyle}>Забыли пароль?</p>
+        
+        <button 
+          onClick={handleLogin} 
+          style={primaryButtonStyle}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Вход...' : 'Войти'}
+        </button>
+        
+        <p style={switchText}>
+          Нет аккаунта? <button onClick={onGoToRegister} style={linkStyle}>Зарегистрироваться</button>
+        </p>
+        
+        {status && !isLoading && <p style={statusStyle(status)}>{status}</p>}
       </div>
     </div>
   )
 }
 
-const containerStyle = {
-  width: '100%',
-  maxWidth: '100vw',
-  overflowX: 'hidden',
-  position: 'relative'
-}
-
-const responsiveFormContainerStyle = {
-  width: '100%',
-  maxWidth: '400px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '16px',
-  padding: '0 20px',
-  boxSizing: 'border-box',
-  margin: '0 auto'
-}
-
+// Обновленные стили с новой цветовой палитрой
 const authPageStyle = {
   height: '100vh',
   display: 'flex',
@@ -151,9 +133,7 @@ const authPageStyle = {
   padding: '40px 20px',
   backgroundColor: '#f6f6f8',
   fontFamily: "'Space Grotesk', sans-serif",
-  position: 'relative',
-  width: '100%',
-  boxSizing: 'border-box'
+  position: 'relative'
 }
 
 const loadingOverlayStyle = {
@@ -204,38 +184,43 @@ const backButtonStyle = {
 }
 
 const logoContainerStyle = {
-  width: '100%',
-  maxWidth: '120px',
-  height: '120px',
+  width: 120,
+  height: 120,
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  marginBottom: '32px'
+  marginBottom: 32
 }
 
 const logoImageStyle = {
-  width: '100%',
-  height: '100%',
+  width: 500,
+  height: 500,
   objectFit: 'contain'
 }
 
 const formSubtitleStyle = {
-  fontSize: '16px',
+  fontSize: 16,
   textAlign: 'center',
   color: '#4c669a',
-  marginBottom: '32px',
-  width: '100%'
+  marginBottom: 32
+}
+
+const formContainerStyle = {
+  width: '100%',
+  maxWidth: 400,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 16
 }
 
 const inputGroupStyle = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '8px',
-  width: '100%'
+  gap: 8
 }
 
 const labelStyle = {
-  fontSize: '14px',
+  fontSize: 14,
   fontWeight: '500',
   color: '#0d121b'
 }
@@ -245,32 +230,30 @@ const inputWrapperStyle = {
   display: 'flex',
   alignItems: 'center',
   border: '1px solid #cfd7e7',
-  borderRadius: '12px',
+  borderRadius: 12,
   backgroundColor: '#ffffff',
-  transition: 'border-color 0.2s ease',
-  width: '100%'
+  transition: 'border-color 0.2s ease'
 }
 
 const inputIconStyle = {
-  marginLeft: '16px',
+  marginLeft: 16,
   color: '#46A8C1',
-  fontSize: '20px'
+  fontSize: 20
 }
 
 const inputStyle = {
   flex: 1,
-  height: '56px',
+  height: 56,
   border: 'none',
   outline: 'none',
   backgroundColor: 'transparent',
-  paddingLeft: '12px',
-  fontSize: '16px',
-  color: '#0d121b',
-  width: '100%'
+  paddingLeft: 12,
+  fontSize: 16,
+  color: '#0d121b'
 }
 
 const eyeButtonStyle = {
-  marginRight: '16px',
+  marginRight: 16,
   color: '#46A8C1',
   background: 'none',
   border: 'none',
@@ -280,33 +263,31 @@ const eyeButtonStyle = {
 
 const forgotPasswordStyle = {
   textAlign: 'right',
-  fontSize: '14px',
+  fontSize: 14,
   color: '#46A8C1',
   textDecoration: 'underline',
-  cursor: 'pointer',
-  width: '100%'
+  cursor: 'pointer'
 }
 
 const primaryButtonStyle = {
-  height: '56px',
+  height: 56,
   width: '100%',
-  borderRadius: '12px',
+  borderRadius: 12,
   backgroundColor: '#46A8C1',
   color: 'white',
-  fontSize: '16px',
+  fontSize: 16,
   fontWeight: 'bold',
   border: 'none',
   cursor: 'pointer',
-  marginTop: '8px',
+  marginTop: 8,
   transition: 'background-color 0.2s ease'
 }
 
 const switchText = {
-  fontSize: '14px',
+  fontSize: 14,
   color: '#4c669a',
   textAlign: 'center',
-  marginTop: '32px',
-  width: '100%'
+  marginTop: 32
 }
 
 const linkStyle = {
@@ -319,13 +300,27 @@ const linkStyle = {
 }
 
 const statusStyle = (text) => ({
-  marginTop: '12px',
+  marginTop: 12,
   padding: '12px 16px',
-  borderRadius: '8px',
+  borderRadius: 8,
   backgroundColor: text.includes('✅') ? '#d1fae5' : '#fee2e2',
   color: text.includes('✅') ? '#065f46' : '#b91c1c',
-  textAlign: 'center',
-  width: '100%'
+  textAlign: 'center'
 })
+
+// Добавляем анимацию спиннера
+const spinAnimation = `
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+`
+
+// Вставляем стили анимации
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style')
+  styleSheet.innerText = spinAnimation
+  document.head.appendChild(styleSheet)
+}
 
 export default Login
