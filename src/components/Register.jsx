@@ -51,119 +51,136 @@ function Register({ onRegisterSuccess, onGoToLogin }) {
   }
 
   return (
-    <div style={authPageStyle}>
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div style={loadingOverlayStyle}>
-          <div style={loadingSpinnerStyle}>
-            <div style={spinnerStyle}></div>
-            <p style={loadingTextStyle}>Регистрация...</p>
+    <div style={containerStyle}>
+      <div style={authPageStyle}>
+        {isLoading && (
+          <div style={loadingOverlayStyle}>
+            <div style={loadingSpinnerStyle}>
+              <div style={spinnerStyle}></div>
+              <p style={loadingTextStyle}>Регистрация...</p>
+            </div>
           </div>
-        </div>
-      )}
-      
-      <div style={backButtonStyle} onClick={onGoToLogin}>
-        <span className="material-symbols-outlined">arrow_back</span>
-      </div>
-      
-      {/* Логотип */}
-      <div style={logoContainerStyle}>
-        <img src={logo} alt="Spacego" style={logoImageStyle} />
-      </div>
-      
-      <h1 style={formTitleStyle}>Создать аккаунт</h1>
-      
-      <div style={formContainerStyle}>
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>Ваше имя</label>
-          <div style={inputWrapperStyle}>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              style={inputStyle}
-              placeholder="Введите ваше имя"
-              maxLength="50"
-            />
-          </div>
+        )}
+        
+        <div style={backButtonStyle} onClick={onGoToLogin}>
+          <span className="material-symbols-outlined">arrow_back</span>
         </div>
         
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>Email</label>
-          <div style={inputWrapperStyle}>
-            <input
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              style={inputStyle}
-              placeholder="Введите ваш email"
-              type="email"
-              maxLength="100"
-            />
-          </div>
+        <div style={logoContainerStyle}>
+          <img src={logo} alt="Spacego" style={logoImageStyle} />
         </div>
         
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>Пароль</label>
-          <div style={inputWrapperStyle}>
-            <input
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              style={inputStyle}
-              placeholder="Введите пароль"
-              type={showPassword ? "text" : "password"}
-              maxLength="50"
-            />
-            <button 
-              type="button"
-              style={eyeButtonStyle} 
-              onClick={togglePasswordVisibility}
-              className="material-symbols-outlined"
-            >
-              {showPassword ? "visibility_off" : "visibility"}
-            </button>
+        <h1 style={formTitleStyle}>Создать аккаунт</h1>
+        
+        <div style={responsiveFormContainerStyle}>
+          <div style={inputGroupStyle}>
+            <label style={labelStyle}>Ваше имя</label>
+            <div style={inputWrapperStyle}>
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                style={inputStyle}
+                placeholder="Введите ваше имя"
+                maxLength="50"
+              />
+            </div>
           </div>
-        </div>
-        
-        <div style={inputGroupStyle}>
-          <label style={labelStyle}>Подтвердите пароль</label>
-          <div style={inputWrapperStyle}>
-            <input
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              style={inputStyle}
-              placeholder="Повторите ваш пароль"
-              type={showConfirmPassword ? "text" : "password"}
-              maxLength="50"
-            />
-            <button 
-              type="button"
-              style={eyeButtonStyle} 
-              onClick={toggleConfirmPasswordVisibility}
-              className="material-symbols-outlined"
-            >
-              {showConfirmPassword ? "visibility_off" : "visibility"}
-            </button>
+          
+          <div style={inputGroupStyle}>
+            <label style={labelStyle}>Email</label>
+            <div style={inputWrapperStyle}>
+              <input
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                style={inputStyle}
+                placeholder="Введите ваш email"
+                type="email"
+                maxLength="100"
+              />
+            </div>
           </div>
+          
+          <div style={inputGroupStyle}>
+            <label style={labelStyle}>Пароль</label>
+            <div style={inputWrapperStyle}>
+              <input
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                style={inputStyle}
+                placeholder="Введите пароль"
+                type={showPassword ? "text" : "password"}
+                maxLength="50"
+              />
+              <button 
+                type="button"
+                style={eyeButtonStyle} 
+                onClick={togglePasswordVisibility}
+                className="material-symbols-outlined"
+              >
+                {showPassword ? "visibility_off" : "visibility"}
+              </button>
+            </div>
+          </div>
+          
+          <div style={inputGroupStyle}>
+            <label style={labelStyle}>Подтвердите пароль</label>
+            <div style={inputWrapperStyle}>
+              <input
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                style={inputStyle}
+                placeholder="Повторите ваш пароль"
+                type={showConfirmPassword ? "text" : "password"}
+                maxLength="50"
+              />
+              <button 
+                type="button"
+                style={eyeButtonStyle} 
+                onClick={toggleConfirmPasswordVisibility}
+                className="material-symbols-outlined"
+              >
+                {showConfirmPassword ? "visibility_off" : "visibility"}
+              </button>
+            </div>
+          </div>
+          
+          <button 
+            onClick={handleRegister} 
+            style={primaryButtonStyle}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
+          </button>
+          
+          <p style={switchText}>
+            Уже есть аккаунт? <button onClick={onGoToLogin} style={linkStyle}>Войти</button>
+          </p>
+          
+          {status && !isLoading && <p style={statusStyle(status)}>{status}</p>}
         </div>
-        
-        <button 
-          onClick={handleRegister} 
-          style={primaryButtonStyle}
-          disabled={isLoading}
-        >
-          {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
-        </button>
-        
-        <p style={switchText}>
-          Уже есть аккаунт? <button onClick={onGoToLogin} style={linkStyle}>Войти</button>
-        </p>
-        
-        {status && !isLoading && <p style={statusStyle(status)}>{status}</p>}
       </div>
     </div>
   )
 }
 
-// Стили (аналогично Login с обновленными цветами)
+const containerStyle = {
+  width: '100%',
+  maxWidth: '100vw',
+  overflowX: 'hidden',
+  position: 'relative'
+}
+
+const responsiveFormContainerStyle = {
+  width: '100%',
+  maxWidth: '400px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '16px',
+  padding: '0 20px',
+  boxSizing: 'border-box',
+  margin: '0 auto'
+}
+
 const authPageStyle = {
   height: '100vh',
   display: 'flex',
@@ -171,7 +188,10 @@ const authPageStyle = {
   padding: '40px 20px',
   backgroundColor: '#f6f6f8',
   fontFamily: "'Space Grotesk', sans-serif",
-  position: 'relative'
+  position: 'relative',
+  width: '100%',
+  boxSizing: 'border-box',
+  overflowX: 'hidden'
 }
 
 const loadingOverlayStyle = {
@@ -212,59 +232,56 @@ const loadingTextStyle = {
 
 const backButtonStyle = {
   alignSelf: 'flex-start',
-  width: 48,
-  height: 48,
+  width: '48px',
+  height: '48px',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   cursor: 'pointer',
   color: '#46A8C1',
-  marginBottom: 32
+  marginBottom: '32px'
 }
 
 const logoContainerStyle = {
-  width: 120,
-  height: 120,
+  width: '100%',
+  maxWidth: '120px',
+  height: '120px',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  marginBottom: 32,
+  marginBottom: '32px',
   alignSelf: 'center'
 }
 
 const logoImageStyle = {
-  width: 500,
-  height: 500,
+  width: '100%',
+  height: '100%',
   objectFit: 'contain'
 }
 
 const formTitleStyle = {
-  fontSize: 24,
+  fontSize: '24px',
   fontWeight: 'bold',
   color: '#0d121b',
-  marginBottom: 32,
+  marginBottom: '32px',
   textAlign: 'left',
-  width: '100%'
-}
-
-const formContainerStyle = {
   width: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 20
+  padding: '0 20px',
+  boxSizing: 'border-box'
 }
 
 const inputGroupStyle = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 8
+  gap: '8px',
+  width: '100%'
 }
 
 const labelStyle = {
-  fontSize: 14,
+  fontSize: '14px',
   fontWeight: '500',
   color: '#0d121b',
-  marginBottom: 4
+  marginBottom: '4px'
 }
 
 const inputWrapperStyle = {
@@ -272,26 +289,28 @@ const inputWrapperStyle = {
   display: 'flex',
   alignItems: 'center',
   border: '1px solid #cfd7e7',
-  borderRadius: 12,
+  borderRadius: '12px',
   backgroundColor: 'white',
   overflow: 'hidden',
-  transition: 'border-color 0.2s ease'
+  transition: 'border-color 0.2s ease',
+  width: '100%'
 }
 
 const inputStyle = {
   flex: 1,
-  height: 56,
+  height: '56px',
   border: 'none',
   outline: 'none',
   backgroundColor: 'transparent',
   padding: '0 16px',
-  fontSize: 16,
-  color: '#0d121b'
+  fontSize: '16px',
+  color: '#0d121b',
+  width: '100%'
 }
 
 const eyeButtonStyle = {
-  width: 56,
-  height: 56,
+  width: '56px',
+  height: '56px',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
@@ -303,24 +322,25 @@ const eyeButtonStyle = {
 }
 
 const primaryButtonStyle = {
-  height: 56,
+  height: '56px',
   width: '100%',
-  borderRadius: 12,
+  borderRadius: '12px',
   backgroundColor: '#46A8C1',
   color: 'white',
-  fontSize: 16,
+  fontSize: '16px',
   fontWeight: 'bold',
   border: 'none',
   cursor: 'pointer',
-  marginTop: 24,
+  marginTop: '24px',
   transition: 'background-color 0.2s ease'
 }
 
 const switchText = {
-  fontSize: 14,
+  fontSize: '14px',
   color: '#4c669a',
   textAlign: 'center',
-  marginTop: 32
+  marginTop: '32px',
+  width: '100%'
 }
 
 const linkStyle = {
@@ -333,12 +353,13 @@ const linkStyle = {
 }
 
 const statusStyle = (text) => ({
-  marginTop: 12,
+  marginTop: '12px',
   padding: '12px 16px',
-  borderRadius: 8,
+  borderRadius: '8px',
   backgroundColor: text.includes('✅') ? '#d1fae5' : '#fee2e2',
   color: text.includes('✅') ? '#065f46' : '#b91c1c',
-  textAlign: 'center'
+  textAlign: 'center',
+  width: '100%'
 })
 
 export default Register

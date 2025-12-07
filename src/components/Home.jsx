@@ -474,197 +474,198 @@ function Home({ user, onLogout, onViewAd, onCreateAd }) {
   const displayAds = filteredAds || []
   const displayCategories = categories || []
 
-  return (
-    <div className="app-container">
-    <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh' }}>
-      {/* TopAppBar */}
-      <div style={topAppBarStyle}>
-        <div style={{ width: 48 }}>
-          {user && (
-            <button onClick={onLogout} style={logoutButtonStyle}>
-              <span className="material-symbols-outlined">logout</span>
-            </button>
-          )}
-        </div>
-        <div style={appTitleContainerStyle}>
-          <img src={logo} alt="Spacego" style={appLogoStyle} />
-        </div>
-        <div style={headerButtonsStyle}>
-          <button
-            style={refreshButtonStyle}
-            onClick={handleRefresh}
-            disabled={localLoading}
-            title="Обновить"
-          >
-            <span
-              className="material-symbols-outlined"
-              style={{
-                animation: localLoading ? 'spin 1s linear infinite' : 'none'
-              }}
-            >
-              refresh
-            </span>
-          </button>
-          <button style={notificationButtonStyle}>
-            <span className="material-symbols-outlined">notifications</span>
-          </button>
-        </div>
-      </div>
-
-      {/* SearchBar */}
-      <div style={searchContainerStyle}>
-        <div style={searchWrapperStyle}>
-          <span style={searchIconStyle} className="material-symbols-outlined">search</span>
-          <input
-            placeholder="Поиск объявлений..."
-            style={searchInputStyle}
-            maxLength="100"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <button style={filterButtonStyle} onClick={openFilters}>
-            <span className="material-symbols-outlined">tune</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Основные категории */}
-      <div style={chipsContainerStyle}>
-        <div
-          key="all"
-          style={!selectedCategory ? chipActiveStyle : chipStyle}
-          onClick={clearFilters} // Вызываем clearFilters для "Все"
-        >
-          Все
-        </div>
-
-        {displayCategories.map(category => (
-          <div
-            key={category.id}
-            style={selectedCategory && selectedCategory.id === category.id ? chipActiveStyle : chipStyle}
-            onClick={() => handleCategoryClick(category)}
-          >
-            {category.name}
-          </div>
-        ))}
-      </div>
-
-      {/* Подкатегории недвижимости */}
-      {isSubcategoriesOpen && realEstateCat && realEstateSubcats.length > 0 && (
-        <div style={subcategoriesContainerStyle}>
-          <div style={subcategoriesTitleStyle}>
-            <span style={subcategoriesIconStyle} className="material-symbols-outlined">
-              expand_more
-            </span>
-            <span>Выберите тип недвижимости:</span>
-          </div>
-          <div style={subcategoriesChipsStyle}>
-            <div
-              style={selectedCategory && selectedCategory.id === realEstateCat.id ? subcategoryChipActiveStyle : subcategoryChipStyle}
-              onClick={() => handleCategoryClick(realEstateCat)} // Используем handleCategoryClick
-            >
-              Все типы
-            </div>
-            {realEstateSubcats.map(subcat => (
-              <div
-                key={subcat.id}
-                style={selectedCategory && selectedCategory.id === subcat.id ? subcategoryChipActiveStyle : subcategoryChipStyle}
-                onClick={() => handleSubcategoryClick(subcat)}
-              >
-                {subcat.name}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Индикатор выбранной категории/поиска/фильтров */}
-      {(selectedCategory || searchTerm || Object.values(activeFilters).some(val => val !== '' && val !== false)) && (
-        <div style={filterIndicatorStyle}>
-          <span>
-            {searchTerm && `Поиск: "${searchTerm}"`}
-            {selectedCategory && !searchTerm && !Object.values(activeFilters).some(val => val !== '' && val !== false) && `Категория: ${selectedCategory.name}`}
-            {selectedCategory && (searchTerm || Object.values(activeFilters).some(val => val !== '' && val !== false)) && ` | Категория: ${selectedCategory.name}`}
-            {activeFilters.rooms && ` | Комнат: ${activeFilters.rooms}`}
-            {activeFilters.min_price && ` | Цена от: ${activeFilters.min_price}`}
-            {activeFilters.max_price && ` | Цена до: ${activeFilters.max_price}`}
-            {activeFilters.total_area_min && ` | Площадь от: ${activeFilters.total_area_min} м²`}
-            {activeFilters.total_area_max && ` | Площадь до: ${activeFilters.total_area_max} м²`}
-            {activeFilters.transaction_type && ` | Сделка: ${activeFilters.transaction_type === 'sell' ? 'Продажа' : activeFilters.transaction_type === 'rent' ? 'Аренда' : 'Посуточно'}`}
-            {activeFilters.has_photo && ` | Только с фото`}
-            {/* ... другие фильтры ... */}
-          </span>
-          <button style={clearFilterStyle} onClick={clearFilters}>
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-      )}
-
-      {/* Grid */}
-      <div style={gridStyle}>
-        {(isLoading || localLoading) ? (
-          Array.from({ length: 8 }).map((_, index) => (
-            <SkeletonCard key={index} />
-          ))
-        ) : displayAds.length > 0 ? (
-          displayAds.map(ad => (
-            <AdCard key={ad.id} ad={ad} onClick={() => onViewAd(ad)} />
-          ))
-        ) : (
-          <div style={noResultsStyle}>
-            {searchTerm ? (
-              <p>По запросу "{searchTerm}" ничего не найдено</p>
-            ) : selectedCategory || Object.values(activeFilters).some(val => val !== '' && val !== false) ? (
-              <p>Нет объявлений по заданным критериям</p>
-            ) : (
-              <p>Нет объявлений</p>
+return (
+    <div style={containerStyle}>
+      <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh' }}>
+        {/* TopAppBar */}
+        <div style={topAppBarStyle}>
+          <div style={{ width: 48 }}>
+            {user && (
+              <button onClick={onLogout} style={logoutButtonStyle}>
+                <span className="material-symbols-outlined">logout</span>
+              </button>
             )}
           </div>
+          <div style={appTitleContainerStyle}>
+            <img src={logo} alt="Spacego" style={appLogoStyle} />
+          </div>
+          <div style={headerButtonsStyle}>
+            <button
+              style={refreshButtonStyle}
+              onClick={handleRefresh}
+              disabled={localLoading}
+              title="Обновить"
+            >
+              <span
+                className="material-symbols-outlined"
+                style={{
+                  animation: localLoading ? 'spin 1s linear infinite' : 'none'
+                }}
+              >
+                refresh
+              </span>
+            </button>
+            <button style={notificationButtonStyle}>
+              <span className="material-symbols-outlined">notifications</span>
+            </button>
+          </div>
+        </div>
+
+        {/* SearchBar */}
+        <div style={searchContainerStyle}>
+          <div style={searchWrapperStyle}>
+            <span style={searchIconStyle} className="material-symbols-outlined">search</span>
+            <input
+              placeholder="Поиск объявлений..."
+              style={searchInputStyle}
+              maxLength="100"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <button style={filterButtonStyle} onClick={openFilters}>
+              <span className="material-symbols-outlined">tune</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Основные категории */}
+        <div style={chipsContainerStyle}>
+          <div
+            key="all"
+            style={!selectedCategory ? chipActiveStyle : chipStyle}
+            onClick={clearFilters}
+          >
+            Все
+          </div>
+
+          {displayCategories.map(category => (
+            <div
+              key={category.id}
+              style={selectedCategory && selectedCategory.id === category.id ? chipActiveStyle : chipStyle}
+              onClick={() => handleCategoryClick(category)}
+            >
+              {category.name}
+            </div>
+          ))}
+        </div>
+
+        {/* Подкатегории недвижимости */}
+        {isSubcategoriesOpen && realEstateCat && realEstateSubcats.length > 0 && (
+          <div style={subcategoriesContainerStyle}>
+            <div style={subcategoriesTitleStyle}>
+              <span style={subcategoriesIconStyle} className="material-symbols-outlined">
+                expand_more
+              </span>
+              <span>Выберите тип недвижимости:</span>
+            </div>
+            <div style={subcategoriesChipsStyle}>
+              <div
+                style={selectedCategory && selectedCategory.id === realEstateCat.id ? subcategoryChipActiveStyle : subcategoryChipStyle}
+                onClick={() => handleCategoryClick(realEstateCat)}
+              >
+                Все типы
+              </div>
+              {realEstateSubcats.map(subcat => (
+                <div
+                  key={subcat.id}
+                  style={selectedCategory && selectedCategory.id === subcat.id ? subcategoryChipActiveStyle : subcategoryChipStyle}
+                  onClick={() => handleSubcategoryClick(subcat)}
+                >
+                  {subcat.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Индикатор выбранной категории/поиска/фильтров */}
+        {(selectedCategory || searchTerm || Object.values(activeFilters).some(val => val !== '' && val !== false)) && (
+          <div style={filterIndicatorStyle}>
+            <span>
+              {searchTerm && `Поиск: "${searchTerm}"`}
+              {selectedCategory && !searchTerm && !Object.values(activeFilters).some(val => val !== '' && val !== false) && `Категория: ${selectedCategory.name}`}
+              {selectedCategory && (searchTerm || Object.values(activeFilters).some(val => val !== '' && val !== false)) && ` | Категория: ${selectedCategory.name}`}
+              {activeFilters.rooms && ` | Комнат: ${activeFilters.rooms}`}
+              {activeFilters.min_price && ` | Цена от: ${activeFilters.min_price}`}
+              {activeFilters.max_price && ` | Цена до: ${activeFilters.max_price}`}
+              {activeFilters.total_area_min && ` | Площадь от: ${activeFilters.total_area_min} м²`}
+              {activeFilters.total_area_max && ` | Площадь до: ${activeFilters.total_area_max} м²`}
+              {activeFilters.transaction_type && ` | Сделка: ${activeFilters.transaction_type === 'sell' ? 'Продажа' : activeFilters.transaction_type === 'rent' ? 'Аренда' : 'Посуточно'}`}
+              {activeFilters.has_photo && ` | Только с фото`}
+            </span>
+            <button style={clearFilterStyle} onClick={clearFilters}>
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        )}
+
+        {/* Grid */}
+        <div style={gridContainerStyle}>
+          <div style={gridStyle}>
+            {(isLoading || localLoading) ? (
+              Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))
+            ) : displayAds.length > 0 ? (
+              displayAds.map(ad => (
+                <AdCard key={ad.id} ad={ad} onClick={() => onViewAd(ad)} />
+              ))
+            ) : (
+              <div style={noResultsStyle}>
+                {searchTerm ? (
+                  <p>По запросу "{searchTerm}" ничего не найдено</p>
+                ) : selectedCategory || Object.values(activeFilters).some(val => val !== '' && val !== false) ? (
+                  <p>Нет объявлений по заданным критериям</p>
+                ) : (
+                  <p>Нет объявлений</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* FAB */}
+        <button style={fabStyle} onClick={onCreateAd}>
+          <span className="material-symbols-outlined">add</span>
+        </button>
+
+        {/* BottomNav */}
+        <div style={bottomNavStyle}>
+          <div style={navItemActiveStyle}>
+            <span className="material-symbols-outlined">home</span>
+            <span style={navLabelStyle}>Home</span>
+          </div>
+          <div style={navItemStyle}>
+            <span className="material-symbols-outlined">favorite</span>
+            <span style={navLabelStyle}>Favorites</span>
+          </div>
+          <div style={navItemStyle} onClick={onCreateAd}>
+            <span className="material-symbols-outlined">add</span>
+            <span style={navLabelStyle}>Sell</span>
+          </div>
+          <div style={navItemStyle}>
+            <span className="material-symbols-outlined">chat_bubble</span>
+            <span style={navLabelStyle}>Messages</span>
+          </div>
+          <div style={navItemStyle}>
+            <span className="material-symbols-outlined">person</span>
+            <span style={navLabelStyle}>Profile</span>
+          </div>
+        </div>
+
+        {/* Filters Panel */}
+        {showFilters && (
+          <FiltersPanel
+            filters={activeFilters}
+            onFiltersChange={updateLocalFilters}
+            onApply={applyFilters}
+            onReset={resetFilters}
+            onClose={closeFilters}
+            category={selectedCategory}
+            applicableFilterKeys={applicableFilterKeys}
+          />
         )}
       </div>
-
-      {/* FAB */}
-      <button style={fabStyle} onClick={onCreateAd}>
-        <span className="material-symbols-outlined">add</span>
-      </button>
-
-      {/* BottomNav */}
-      <div style={bottomNavStyle}>
-        <div style={navItemActiveStyle}>
-          <span className="material-symbols-outlined">home</span>
-          <span style={navLabelStyle}>Home</span>
-        </div>
-        <div style={navItemStyle}>
-          <span className="material-symbols-outlined">favorite</span>
-          <span style={navLabelStyle}>Favorites</span>
-        </div>
-        <div style={navItemStyle} onClick={onCreateAd}>
-          <span className="material-symbols-outlined">add</span>
-          <span style={navLabelStyle}>Sell</span>
-        </div>
-        <div style={navItemStyle}>
-          <span className="material-symbols-outlined">chat_bubble</span>
-          <span style={navLabelStyle}>Messages</span>
-        </div>
-        <div style={navItemStyle}>
-          <span className="material-symbols-outlined">person</span>
-          <span style={navLabelStyle}>Profile</span>
-        </div>
-      </div>
-
-      {/* Filters Panel */}
-      {showFilters && (
-        <FiltersPanel
-          filters={activeFilters}
-          onFiltersChange={updateLocalFilters}
-          onApply={applyFilters}
-          onReset={resetFilters}
-          onClose={closeFilters}
-          category={selectedCategory}
-          applicableFilterKeys={applicableFilterKeys} // Передаём Set применимых ключей
-        />
-      )}
-    </div>
     </div>
   )
 }
@@ -674,12 +675,13 @@ const topAppBarStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '0 20px',
+  padding: '0 16px', // Измените с 20px на 16px для мобильных
   backgroundColor: 'white',
   borderBottom: '1px solid #eee',
   height: '100px',
   minHeight: '100px',
-  boxSizing: 'border-box'
+  boxSizing: 'border-box',
+  width: '100%'
 }
 
 const logoutButtonStyle = {
@@ -700,7 +702,8 @@ const appTitleContainerStyle = {
 const appLogoStyle = {
   width: 250,
   height: 250,
-  objectFit: 'contain'
+  objectFit: 'contain',
+  maxWidth: '100%' // Добавьте это
 }
 
 const headerButtonsStyle = {
@@ -784,9 +787,12 @@ const chipsContainerStyle = {
   display: 'flex',
   gap: 12,
   padding: '0 16px 12px',
-  overflowX: 'auto'
+  overflowX: 'auto',
+  width: '100%',
+  boxSizing: 'border-box',
+  WebkitOverflowScrolling: 'touch',
+  maxWidth: '100vw' // Добавьте это
 }
-
 const chipStyle = {
   padding: '8px 16px',
   backgroundColor: 'white',
@@ -886,8 +892,11 @@ const clearFilterStyle = {
 const gridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))',
-  gap: 12,
-  padding: '0 16px 80px'
+  gap: '12px',
+  padding: '0 16px 80px',
+  width: '100%',
+  boxSizing: 'border-box',
+  maxWidth: '100vw' // Добавьте это
 }
 
 const noResultsStyle = {
@@ -913,7 +922,8 @@ const fabStyle = {
   border: 'none',
   boxShadow: '0 4px 12px rgba(80, 183, 156, 0.3)',
   cursor: 'pointer',
-  transition: 'transform 0.2s ease'
+  transition: 'transform 0.2s ease',
+  zIndex: 1000 // Добавьте z-index чтобы был над другими элементами
 }
 
 const bottomNavStyle = {
@@ -921,12 +931,14 @@ const bottomNavStyle = {
   bottom: 0,
   left: 0,
   right: 0,
-  height: 80,
+  height: '80px',
   display: 'flex',
   justifyContent: 'space-around',
   alignItems: 'center',
   borderTop: '1px solid #eee',
-  backgroundColor: 'white'
+  backgroundColor: 'white',
+  width: '100%',
+  boxSizing: 'border-box'
 }
 
 const navItemStyle = {
@@ -948,6 +960,18 @@ const navItemActiveStyle = {
 const navLabelStyle = {
   fontSize: 10,
   fontWeight: '500'
+}
+
+const containerStyle = {
+  width: '100%',
+  maxWidth: '100vw',
+  overflowX: 'hidden',
+  position: 'relative'
+}
+
+const gridContainerStyle = {
+  width: '100%',
+  overflowX: 'hidden'
 }
 
 export default Home
