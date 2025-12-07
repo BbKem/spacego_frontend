@@ -475,6 +475,7 @@ function Home({ user, onLogout, onViewAd, onCreateAd }) {
   const displayCategories = categories || []
 
   return (
+    <div className="app-container">
     <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh' }}>
       {/* TopAppBar */}
       <div style={topAppBarStyle}>
@@ -663,6 +664,7 @@ function Home({ user, onLogout, onViewAd, onCreateAd }) {
           applicableFilterKeys={applicableFilterKeys} // Передаём Set применимых ключей
         />
       )}
+    </div>
     </div>
   )
 }
