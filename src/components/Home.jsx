@@ -1,42 +1,475 @@
-import { useState, useEffect } from 'react'
+// frontend/src/components/Home.jsx
+import { useState, useEffect, useRef, useMemo } from 'react'
 import AdCard from './AdCard'
 import { useAppCache } from '../App'
 import logo from '../assets/logo.png'
+import SkeletonCard from './SkeletonCard'
+import FiltersPanel from './FiltersPanel'
+
+// Простая утилита для поверхностного сравнения объектов
+function shallowEqual(objA, objB) {
+  if (objA === objB) return true;
+
+  if (!objA || !objB || typeof objA !== 'object' || typeof objB !== 'object') {
+    return false;
+  }
+
+  const keysA = Object.keys(objA);
+  const keysB = Object.keys(objB);
+
+  if (keysA.length !== keysB.length) return false;
+
+  for (let i = 0; i < keysA.length; i++) {
+    const key = keysA[i];
+    if (objA[key] !== objB[key]) return false;
+  }
+
+  return true;
+}
+
+// --- ОПРЕДЕЛЕНИЕ ТИПОВ КАТЕГОРИЙ И ФИЛЬТРОВ ---
+const CATEGORY_TYPES = {
+  apartment: {
+    name: 'Квартиры',
+    applicableFilters: [
+      'transaction_type', 'total_area_min', 'total_area_max',
+      'rooms', 'floor_min', 'floor_max', 'total_floors_min', 'total_floors_max',
+      'building_type', 'condition_detail', 'furniture', 'bathroom_type', 'balcony', 'lift', 'parking'
+    ]
+  },
+  room: {
+    name: 'Комнаты',
+    applicableFilters: [
+      'transaction_type', 'area_room_min', 'area_room_max',
+      'area_apartment_min', 'area_apartment_max', 'room_type', 'furniture', 'neighbors'
+    ]
+  },
+  house: {
+    name: 'Дома / Дачи / Коттеджи',
+    applicableFilters: [
+      'transaction_type', 'total_area_min', 'total_area_max',
+    'property_type', 'material_type', 'heating_type',
+    'plot_area_min', 'plot_area_max', 'land_category',
+    'floors_min', 'floors_max',
+    'condition_detail', 'furniture',
+    'gas', 'water', 'sewage', 'electricity',
+    'garage', 'outbuildings', 'bathhouse',
+    'bathroom_type', 'balcony', 'parking'
+    ]
+  },
+  land: {
+    name: 'Земельные участки',
+    applicableFilters: [
+      'transaction_type',  'plot_area_min', 'plot_area_max', 
+      'land_category', 'allowed_use', 'utilities', 'terrain', 'access_road'
+    ]
+  },
+  garage: {
+    name: 'Гаражи и машиноместа',
+    applicableFilters: [
+       'transaction_type', 'total_area_min', 'total_area_max',
+    'property_type',   
+    'heating', 'security', 'floor',
+    'parking'
+    ]
+  },
+  newbuilding: {
+    name: 'Новостройки',
+    applicableFilters: [
+      'transaction_type', 'total_area_min', 'total_area_max',
+      'rooms', 'floor_min', 'floor_max', 'total_floors_min', 'total_floors_max',
+      'building_type', 'completion_quarter', 'completion_year', 'finish_type', 'developer', 'mortgage_friendly'
+    ]
+  },
+  dailyrental: {
+    name: 'Посуточная аренда',
+    applicableFilters: [
+      'total_area_min', 'total_area_max',
+      'guests_min', 'guests_max', 'bedrooms_min', 'bedrooms_max',
+      'amenities', 'checkin_time', 'checkout_time', 'rules', 'pets_allowed', 'smoking_allowed'
+    ]
+  },
+  hotel: {
+    name: 'Отели / Апартаменты',
+    applicableFilters: [
+      'guests_min', 'guests_max', 'rooms_min', 'rooms_max',
+      'amenities', 'services', 'parking', 'wifi', 'breakfast', 'reception', 'cleaning', 'air_conditioning'
+    ]
+  },
+  commercial: {
+    name: 'Коммерческая недвижимость',
+    applicableFilters: [
+      'transaction_type', 'total_area_min', 'total_area_max',
+      'property_type', 'power_supply_kw', 'entrance_type', 'lift', 'parking', 'ceiling_height', 'rooms_count'
+    ]
+  }
+};
+
+// Функция для определения типа категории на основе её названия
+const getCategoryType = (categoryName) => {
+  if (!categoryName) return null;
+  for (const [typeKey, typeInfo] of Object.entries(CATEGORY_TYPES)) {
+    if (typeInfo.name.includes(categoryName) || categoryName.includes(typeInfo.name.split(' / ')[0])) {
+      return typeKey;
+    }
+  }
+  return null; // Для не-недвижимости или неизвестных типов
+};
+// --- КОНЕЦ ОПРЕДЕЛЕНИЯ ---
 
 function Home({ user, onLogout, onViewAd, onCreateAd }) {
-  const { ads, categories, isLoading, refreshData } = useAppCache()
+  const { ads: cachedAds, categories, subcategories, getSubcategories, isLoading, refreshData, lastUpdated } = useAppCache()
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [filteredAds, setFilteredAds] = useState([])
   const [localLoading, setLocalLoading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isSubcategoriesOpen, setIsSubcategoriesOpen] = useState(false)
+  const [realEstateSubcats, setRealEstateSubcats] = useState([])
+  const [realEstateCat, setRealEstateCat] = useState(null)
+  const [allSubcategories, setAllSubcategories] = useState([])
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Используем useRef для хранения предыдущих значений
+  const prevCategoryRef = useRef(null);
+  const prevFiltersRef = useRef({});
+
+  const [activeFilters, setActiveFilters] = useState({
+    min_price: '',
+    max_price: '',
+    location: '',
+    rooms: '',
+    total_area_min: '',
+    total_area_max: '',
+    floor_min: '',
+    floor_max: '',
+    total_floors_min: '',
+    total_floors_max: '',
+    building_type: '',
+    condition_detail: '',
+    furniture: '',
+    transaction_type: '',
+    // --- Добавляем остальные возможные фильтры ---
+    bathroom_type: '',
+    balcony: '',
+    lift: '',
+    parking: '',
+    area_room_min: '',
+    area_room_max: '',
+    area_apartment_min: '',
+    area_apartment_max: '',
+    room_type: '',
+    neighbors: '',
+    floors_min: '',
+    floors_max: '',
+    material_type: '',
+    utilities: '',
+    heating_type: '',
+    gas: false,
+    water: false,
+    sewage: false,
+    garage: false,
+    outbuildings: false,
+    bathhouse: false,
+    land_area_min: '',
+    land_area_max: '',
+    land_category: '',
+    allowed_use: '',
+    terrain: '',
+    access_road: '',
+    area_min: '',
+    area_max: '',
+    garage_type: '',
+    heating: false,
+    security: false,
+    floor: '',
+    completion_quarter: '',
+    completion_year: '',
+    finish_type: '',
+    developer: '',
+    mortgage_friendly: false,
+    guests_min: '',
+    guests_max: '',
+    bedrooms_min: '',
+    bedrooms_max: '',
+    amenities: '',
+    checkin_time: '',
+    checkout_time: '',
+    rules: '',
+    pets_allowed: false,
+    smoking_allowed: false,
+    services: '',
+    wifi: false,
+    breakfast: false,
+    reception: false,
+    cleaning: false,
+    air_conditioning: false,
+    property_type: '',
+    power_supply_kw: '',
+    entrance_type: '',
+    ceiling_height: '',
+    rooms_count: '',
+    // --- Добавляем остальные возможные фильтры ---
+    has_photo: false,
+    deal_from_owner: false,
+  });
+
+  const suggestionsRef = useRef(null)
+  const API_BASE = import.meta.env.DEV ? 'http://localhost:4000' : 'https://spacego-backend.onrender.com'
 
   useEffect(() => {
-    if (ads) {
-      if (selectedCategory) {
-        const filtered = ads.filter(ad => ad.category_name === selectedCategory.name)
-        setFilteredAds(filtered)
-      } else {
-        setFilteredAds(ads)
-      }
+    const realEstate = categories?.find(cat => cat.name === 'Недвижимость')
+    if (realEstate) {
+      setRealEstateCat(realEstate)
+      getSubcategories(realEstate.id).then(subcats => {
+        setRealEstateSubcats(subcats)
+        setAllSubcategories(subcats)
+      })
     }
-  }, [selectedCategory, ads])
+  }, [categories, getSubcategories])
+
+  // Определяем тип категории и применимые фильтры
+  const selectedCategoryType = getCategoryType(selectedCategory?.name);
+  const applicableFilterKeys = useMemo(() => {
+    if (selectedCategoryType) {
+      return new Set(CATEGORY_TYPES[selectedCategoryType]?.applicableFilters || []);
+    }
+    return new Set(Object.keys(activeFilters)); // Все фильтры, если тип не определён
+  }, [selectedCategoryType]);
+
+  const backendFilters = useMemo(() => {
+    // Фильтруем только те фильтры, которые применимы к текущему типу категории
+    const filteredFilters = {};
+    Object.keys(activeFilters).forEach(key => {
+      // Включаем фильтр, если он применим к текущей категории ИЛИ если он общий (не зависит от типа)
+      // Общие фильтры: min_price, max_price, location, has_photo, deal_from_owner
+      const isCommonFilter = ['min_price', 'max_price', 'location', 'has_photo', 'deal_from_owner'].includes(key);
+      if (isCommonFilter || applicableFilterKeys.has(key)) {
+        if (activeFilters[key] !== '' && activeFilters[key] !== false) {
+          filteredFilters[key] = activeFilters[key];
+        }
+      }
+    });
+
+    return {
+      ...filteredFilters,
+      category_id: selectedCategory?.id || undefined,
+    };
+  }, [selectedCategory, activeFilters, applicableFilterKeys]);
+
+  // Загружаем объявления с фильтрами при изменении фильтров
+  useEffect(() => {
+    const prevCategory = prevCategoryRef.current;
+    const prevFilters = prevFiltersRef.current;
+
+    const categoryChanged = prevCategory?.id !== selectedCategory?.id;
+    const filtersChanged = !shallowEqual(prevFilters, backendFilters);
+
+    if (categoryChanged || filtersChanged) {
+      const loadFilteredAds = async () => {
+        setLocalLoading(true);
+        try {
+          await refreshData(backendFilters);
+          // Обновляем ref'ы после успешной загрузки
+          prevCategoryRef.current = selectedCategory;
+          prevFiltersRef.current = backendFilters;
+        } catch (error) {
+          console.error("Ошибка загрузки отфильтрованных объявлений:", error);
+        } finally {
+          setLocalLoading(false);
+        }
+      };
+
+      loadFilteredAds();
+    } else {
+      // Если фильтры не изменились, обновляем ref'ы, чтобы не было ложного срабатывания
+      prevCategoryRef.current = selectedCategory;
+      prevFiltersRef.current = backendFilters;
+    }
+  }, [selectedCategory, backendFilters, refreshData]); // Убран activeFilters из зависимостей, так как мы используем backendFilters и ref'ы
+
+
+  // Фильтрация на фронтенде
+  useEffect(() => {
+    if (!cachedAds) return;
+
+    let result = cachedAds;
+
+    if (searchTerm) {
+      result = result.filter(ad =>
+        ad.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ad.description.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    if (activeFilters.has_photo) {
+      result = result.filter(ad => ad.photo_urls && ad.photo_urls.length > 0);
+    }
+    // if (activeFilters.deal_from_owner) {
+    //   result = result.filter(ad => ad.is_owner);
+    // }
+
+    setFilteredAds(result);
+  }, [cachedAds, searchTerm, activeFilters]); // Этот эффект зависит от cachedAds, searchTerm и фронтенд-фильтров
+
 
   const handleRefresh = async () => {
-    setLocalLoading(true)
-    await refreshData()
-    setLocalLoading(false)
+    setLocalLoading(true);
+    try {
+      await refreshData(backendFilters);
+      // Обновляем ref'ы при ручном обновлении
+      prevCategoryRef.current = selectedCategory;
+      prevFiltersRef.current = backendFilters;
+    } catch (error) {
+      console.error("Ошибка обновления:", error);
+    } finally {
+      setLocalLoading(false);
+    }
   }
 
   const handleCategoryClick = (category) => {
+    // Если кликаем на уже выбранную категорию - снимаем выбор
     if (selectedCategory && selectedCategory.id === category.id) {
-      setSelectedCategory(null)
+      clearFilters();
+      return;
+    }
+
+    if (category.name === 'Недвижимость') {
+      setSelectedCategory(category)
+      setIsSubcategoriesOpen(true)
     } else {
       setSelectedCategory(category)
+      setIsSubcategoriesOpen(false)
     }
   }
 
-  const clearFilter = () => {
-    setSelectedCategory(null)
+  const handleSubcategoryClick = (subcategory) => {
+    setSelectedCategory(subcategory)
+    // Не закрываем подменю
   }
+
+  const clearFilters = () => {
+    setSelectedCategory(null)
+    setSearchTerm('')
+    setIsSubcategoriesOpen(false)
+    // Сбрасываем активные фильтры
+    const resetFilters = {
+      min_price: '',
+      max_price: '',
+      location: '',
+      rooms: '',
+      total_area_min: '',
+      total_area_max: '',
+      floor_min: '',
+      floor_max: '',
+      total_floors_min: '',
+      total_floors_max: '',
+      building_type: '',
+      condition_detail: '',
+      furniture: '',
+      transaction_type: '',
+      bathroom_type: '',
+      balcony: '',
+      lift: '',
+      parking: '',
+      area_room_min: '',
+      area_room_max: '',
+      area_apartment_min: '',
+      area_apartment_max: '',
+      room_type: '',
+      neighbors: '',
+      floors_min: '',
+      floors_max: '',
+      material_type: '',
+      utilities: '',
+      heating_type: '',
+      gas: false,
+      water: false,
+      sewage: false,
+      garage: false,
+      outbuildings: false,
+      bathhouse: false,
+      land_area_min: '',
+      land_area_max: '',
+      land_category: '',
+      allowed_use: '',
+      terrain: '',
+      access_road: '',
+      area_min: '',
+      area_max: '',
+      garage_type: '',
+      heating: false,
+      security: false,
+      floor: '',
+      completion_quarter: '',
+      completion_year: '',
+      finish_type: '',
+      developer: '',
+      mortgage_friendly: false,
+      guests_min: '',
+      guests_max: '',
+      bedrooms_min: '',
+      bedrooms_max: '',
+      amenities: '',
+      checkin_time: '',
+      checkout_time: '',
+      rules: '',
+      pets_allowed: false,
+      smoking_allowed: false,
+      services: '',
+      wifi: false,
+      breakfast: false,
+      reception: false,
+      cleaning: false,
+      air_conditioning: false,
+      property_type: '',
+      power_supply_kw: '',
+      entrance_type: '',
+      ceiling_height: '',
+      rooms_count: '',
+      has_photo: false,
+      deal_from_owner: false,
+    };
+    setActiveFilters(resetFilters);
+
+    // Явно вызываем refreshData с пустыми фильтрами для получения всех объявлений
+    const loadAllAds = async () => {
+      setLocalLoading(true);
+      try {
+        await refreshData(resetFilters); // Передаём сброшенные фильтры (без category_id)
+        // Обновляем ref'ы после сброса
+        prevCategoryRef.current = null;
+        prevFiltersRef.current = resetFilters;
+      } catch (error) {
+        console.error("Ошибка сброса фильтров:", error);
+      } finally {
+        setLocalLoading(false);
+      }
+    };
+    loadAllAds();
+  }
+
+  const openFilters = () => {
+    setShowFilters(true);
+  };
+
+  const closeFilters = () => {
+    setShowFilters(false);
+  };
+
+  const updateLocalFilters = (newFilters) => {
+    // Обновляем только локальное состояние в FiltersPanel
+  };
+
+  const applyFilters = (appliedFilters) => {
+    // Устанавливаем новые фильтры, это вызовет useEffect с фильтрацией
+    setActiveFilters(appliedFilters);
+    closeFilters();
+  };
+  
+
+  const resetFilters = (resetFiltersObj) => {
+    setActiveFilters(resetFiltersObj);
+  };
 
   const displayAds = filteredAds || []
   const displayCategories = categories || []
@@ -45,21 +478,27 @@ function Home({ user, onLogout, onViewAd, onCreateAd }) {
     <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh' }}>
       {/* TopAppBar */}
       <div style={topAppBarStyle}>
-        <div style={{ width: 48 }}></div>
+        <div style={{ width: 48 }}>
+          {user && (
+            <button onClick={onLogout} style={logoutButtonStyle}>
+              <span className="material-symbols-outlined">logout</span>
+            </button>
+          )}
+        </div>
         <div style={appTitleContainerStyle}>
           <img src={logo} alt="Spacego" style={appLogoStyle} />
         </div>
         <div style={headerButtonsStyle}>
-          <button 
-            style={refreshButtonStyle} 
+          <button
+            style={refreshButtonStyle}
             onClick={handleRefresh}
             disabled={localLoading}
             title="Обновить"
           >
-            <span 
+            <span
               className="material-symbols-outlined"
-              style={{ 
-                animation: localLoading ? 'spin 1s linear infinite' : 'none' 
+              style={{
+                animation: localLoading ? 'spin 1s linear infinite' : 'none'
               }}
             >
               refresh
@@ -76,39 +515,85 @@ function Home({ user, onLogout, onViewAd, onCreateAd }) {
         <div style={searchWrapperStyle}>
           <span style={searchIconStyle} className="material-symbols-outlined">search</span>
           <input
-            placeholder="Search for products"
+            placeholder="Поиск объявлений..."
             style={searchInputStyle}
             maxLength="100"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
+          <button style={filterButtonStyle} onClick={openFilters}>
+            <span className="material-symbols-outlined">tune</span>
+          </button>
         </div>
       </div>
 
-      {/* Chips */}
+      {/* Основные категории */}
       <div style={chipsContainerStyle}>
-        <div 
+        <div
           key="all"
-          style={selectedCategory === null ? chipActiveStyle : chipStyle}
-          onClick={clearFilter}
+          style={!selectedCategory ? chipActiveStyle : chipStyle}
+          onClick={clearFilters} // Вызываем clearFilters для "Все"
         >
           Все
         </div>
-        
-        {displayCategories.map(cat => (
-          <div 
-            key={cat.id} 
-            style={selectedCategory && selectedCategory.id === cat.id ? chipActiveStyle : chipStyle}
-            onClick={() => handleCategoryClick(cat)}
+
+        {displayCategories.map(category => (
+          <div
+            key={category.id}
+            style={selectedCategory && selectedCategory.id === category.id ? chipActiveStyle : chipStyle}
+            onClick={() => handleCategoryClick(category)}
           >
-            {cat.name}
+            {category.name}
           </div>
         ))}
       </div>
 
-      {/* Индикатор выбранной категории */}
-      {selectedCategory && (
+      {/* Подкатегории недвижимости */}
+      {isSubcategoriesOpen && realEstateCat && realEstateSubcats.length > 0 && (
+        <div style={subcategoriesContainerStyle}>
+          <div style={subcategoriesTitleStyle}>
+            <span style={subcategoriesIconStyle} className="material-symbols-outlined">
+              expand_more
+            </span>
+            <span>Выберите тип недвижимости:</span>
+          </div>
+          <div style={subcategoriesChipsStyle}>
+            <div
+              style={selectedCategory && selectedCategory.id === realEstateCat.id ? subcategoryChipActiveStyle : subcategoryChipStyle}
+              onClick={() => handleCategoryClick(realEstateCat)} // Используем handleCategoryClick
+            >
+              Все типы
+            </div>
+            {realEstateSubcats.map(subcat => (
+              <div
+                key={subcat.id}
+                style={selectedCategory && selectedCategory.id === subcat.id ? subcategoryChipActiveStyle : subcategoryChipStyle}
+                onClick={() => handleSubcategoryClick(subcat)}
+              >
+                {subcat.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Индикатор выбранной категории/поиска/фильтров */}
+      {(selectedCategory || searchTerm || Object.values(activeFilters).some(val => val !== '' && val !== false)) && (
         <div style={filterIndicatorStyle}>
-          <span>Показаны объявления в категории: <strong>{selectedCategory.name}</strong></span>
-          <button style={clearFilterStyle} onClick={clearFilter}>
+          <span>
+            {searchTerm && `Поиск: "${searchTerm}"`}
+            {selectedCategory && !searchTerm && !Object.values(activeFilters).some(val => val !== '' && val !== false) && `Категория: ${selectedCategory.name}`}
+            {selectedCategory && (searchTerm || Object.values(activeFilters).some(val => val !== '' && val !== false)) && ` | Категория: ${selectedCategory.name}`}
+            {activeFilters.rooms && ` | Комнат: ${activeFilters.rooms}`}
+            {activeFilters.min_price && ` | Цена от: ${activeFilters.min_price}`}
+            {activeFilters.max_price && ` | Цена до: ${activeFilters.max_price}`}
+            {activeFilters.total_area_min && ` | Площадь от: ${activeFilters.total_area_min} м²`}
+            {activeFilters.total_area_max && ` | Площадь до: ${activeFilters.total_area_max} м²`}
+            {activeFilters.transaction_type && ` | Сделка: ${activeFilters.transaction_type === 'sell' ? 'Продажа' : activeFilters.transaction_type === 'rent' ? 'Аренда' : 'Посуточно'}`}
+            {activeFilters.has_photo && ` | Только с фото`}
+            {/* ... другие фильтры ... */}
+          </span>
+          <button style={clearFilterStyle} onClick={clearFilters}>
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -118,11 +603,7 @@ function Home({ user, onLogout, onViewAd, onCreateAd }) {
       <div style={gridStyle}>
         {(isLoading || localLoading) ? (
           Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} style={skeletonCardStyle}>
-              <div style={skeletonImageStyle}></div>
-              <div style={skeletonTextStyle}></div>
-              <div style={skeletonTextShortStyle}></div>
-            </div>
+            <SkeletonCard key={index} />
           ))
         ) : displayAds.length > 0 ? (
           displayAds.map(ad => (
@@ -130,8 +611,10 @@ function Home({ user, onLogout, onViewAd, onCreateAd }) {
           ))
         ) : (
           <div style={noResultsStyle}>
-            {selectedCategory ? (
-              <p>Нет объявлений в категории "{selectedCategory.name}"</p>
+            {searchTerm ? (
+              <p>По запросу "{searchTerm}" ничего не найдено</p>
+            ) : selectedCategory || Object.values(activeFilters).some(val => val !== '' && val !== false) ? (
+              <p>Нет объявлений по заданным критериям</p>
             ) : (
               <p>Нет объявлений</p>
             )}
@@ -162,15 +645,29 @@ function Home({ user, onLogout, onViewAd, onCreateAd }) {
           <span className="material-symbols-outlined">chat_bubble</span>
           <span style={navLabelStyle}>Messages</span>
         </div>
-        <div style={navItemStyle} onClick={onLogout}>
+        <div style={navItemStyle}>
           <span className="material-symbols-outlined">person</span>
           <span style={navLabelStyle}>Profile</span>
         </div>
       </div>
+
+      {/* Filters Panel */}
+      {showFilters && (
+        <FiltersPanel
+          filters={activeFilters}
+          onFiltersChange={updateLocalFilters}
+          onApply={applyFilters}
+          onReset={resetFilters}
+          onClose={closeFilters}
+          category={selectedCategory}
+          applicableFilterKeys={applicableFilterKeys} // Передаём Set применимых ключей
+        />
+      )}
     </div>
   )
 }
 
+// Стили (остаются без изменений)
 const topAppBarStyle = {
   display: 'flex',
   justifyContent: 'space-between',
@@ -178,9 +675,18 @@ const topAppBarStyle = {
   padding: '0 20px',
   backgroundColor: 'white',
   borderBottom: '1px solid #eee',
-  height: '100px', 
-  minHeight: '100px', 
-  boxSizing: 'border-box' 
+  height: '100px',
+  minHeight: '100px',
+  boxSizing: 'border-box'
+}
+
+const logoutButtonStyle = {
+  background: 'none',
+  border: 'none',
+  color: '#46A8C1',
+  cursor: 'pointer',
+  fontSize: '24px',
+  padding: '8px'
 }
 
 const appTitleContainerStyle = {
@@ -257,6 +763,21 @@ const searchInputStyle = {
   color: '#0d121b'
 }
 
+// Новый стиль для кнопки фильтров
+const filterButtonStyle = {
+  width: 48,
+  height: 48,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  background: 'none',
+  border: 'none',
+  color: '#46A8C1',
+  cursor: 'pointer',
+  borderRadius: '0 12px 12px 0', // Закругление справа
+  marginLeft: -48 // Перекрывает часть инпута
+}
+
 const chipsContainerStyle = {
   display: 'flex',
   gap: 12,
@@ -274,7 +795,8 @@ const chipStyle = {
   fontWeight: '500',
   whiteSpace: 'nowrap',
   cursor: 'pointer',
-  transition: 'all 0.2s ease'
+  transition: 'all 0.2s ease',
+  flexShrink: 0
 }
 
 const chipActiveStyle = {
@@ -282,6 +804,59 @@ const chipActiveStyle = {
   backgroundColor: '#46A8C1',
   color: 'white',
   border: '1px solid #46A8C1'
+}
+
+const subcategoriesContainerStyle = {
+  padding: '0 16px 12px',
+  backgroundColor: 'rgba(70, 168, 193, 0.05)',
+  borderTop: '1px solid #e6f2f5',
+  borderBottom: '1px solid #e6f2f5',
+  marginBottom: 12
+}
+
+const subcategoriesTitleStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  color: '#46A8C1',
+  fontSize: 14,
+  fontWeight: '500',
+  marginBottom: 8
+}
+
+const subcategoriesIconStyle = {
+  fontSize: 18,
+  transform: 'rotate(90deg)'
+}
+
+const subcategoriesChipsStyle = {
+  display: 'flex',
+  gap: 10,
+  overflowX: 'auto',
+  paddingBottom: 4
+}
+
+const subcategoryChipStyle = {
+  padding: '6px 14px',
+  backgroundColor: 'white',
+  color: '#4a5568',
+  border: '1px solid #e2e8f0',
+  borderRadius: 6,
+  fontSize: 13,
+  fontWeight: '400',
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
+  flexShrink: 0,
+  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+}
+
+const subcategoryChipActiveStyle = {
+  ...subcategoryChipStyle,
+  backgroundColor: '#46A8C1',
+  color: 'white',
+  border: '1px solid #46A8C1',
+  fontWeight: '500'
 }
 
 const filterIndicatorStyle = {
@@ -371,42 +946,6 @@ const navItemActiveStyle = {
 const navLabelStyle = {
   fontSize: 10,
   fontWeight: '500'
-}
-
-// Скелетоны остаются без изменений
-const skeletonCardStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-  backgroundColor: 'white',
-  borderRadius: 12,
-  overflow: 'hidden',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-  animation: 'pulse 1.5s ease-in-out infinite'
-}
-
-const skeletonImageStyle = {
-  width: '100%',
-  height: '158px',
-  backgroundColor: '#e5e7eb',
-  borderRadius: '12px 12px 0 0'
-}
-
-const skeletonTextStyle = {
-  height: '16px',
-  backgroundColor: '#e5e7eb',
-  borderRadius: 4,
-  margin: '0 12px',
-  marginBottom: '4px'
-}
-
-const skeletonTextShortStyle = {
-  height: '12px',
-  backgroundColor: '#e5e7eb',
-  borderRadius: 4,
-  margin: '0 12px',
-  marginBottom: '8px',
-  width: '60%'
 }
 
 export default Home

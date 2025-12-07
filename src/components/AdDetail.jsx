@@ -1,3 +1,4 @@
+// frontend/src/components/AdDetail.jsx
 import { useState, useEffect } from 'react';
 
 function AdDetail({ ad, onBack }) {
@@ -48,59 +49,532 @@ function AdDetail({ ad, onBack }) {
     }
   };
 
-// Улучшенная функция форматирования адреса для детального просмотра
-const formatLocationForDetail = (location) => {
-  if (!location || location.trim() === '') {
-    return [{ text: 'Местоположение не указано', type: 'empty' }];
-  }
-  
-  // Разбиваем на компоненты
-  const parts = location.split(', ');
-  
-  // Классифицируем компоненты адреса
-  let country = '';
-  let city = '';
-  let street = '';
-  let house = '';
-  
-  // Проходим по частям в обратном порядке для определения страны и города
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const part = parts[i];
+  // Функция для получения читабельных названий полей
+  const getFieldLabel = (key) => {
+    const labels = {
+      transaction_type: 'Тип сделки',
+      total_area: 'Общая площадь',
+      rooms: 'Количество комнат',
+      floor: 'Этаж',
+      total_floors: 'Всего этажей',
+      building_type: 'Тип дома',
+      condition_detail: 'Состояние',
+      furniture: 'Мебель',
+      bathroom_type: 'Санузел',
+      balcony: 'Балкон/лоджия',
+      lift: 'Лифт',
+      parking: 'Парковка',
+      ceiling_height: 'Высота потолков',
+      year_built: 'Год постройки',
+      mortgage_friendly: 'Подходит под ипотеку',
+      gas: 'Газ',
+      electricity: 'Электричество',
+      water: 'Вода',
+      heating_system: 'Отопление',
+      plot_area: 'Площадь участка',
+      land_category: 'Категория земли',
+      allowed_use: 'Разрешённое использование',
+      utilities: 'Коммуникации',
+      terrain: 'Рельеф',
+      access_road: 'Подъездные пути',
+      living_area: 'Жилая площадь',
+      kitchen_area: 'Площадь кухни',
+      property_type: 'Тип объекта',
+      room_type: 'Тип комнаты',
+      wall_material: 'Материал стен',
+      sewage: 'Канализация',
+      garage: 'Гараж',
+      outbuildings: 'Хозпостройки',
+      bathhouse: 'Баня',
+      gate_type: 'Тип ворот',
+      construction_material: 'Материал постройки',
+      security: 'Охрана',
+      bedrooms: 'Количество спален',
+      guests: 'Максимум гостей',
+      wifi: 'Wi-Fi',
+      breakfast: 'Завтрак',
+      transfer: 'Трансфер',
+      reception: 'Ресепшн 24/7',
+      cleaning: 'Уборка',
+      ac: 'Кондиционер',
+      developer: 'Застройщик',
+      project_name: 'Название проекта',
+      delivery_date: 'Срок сдачи',
+      contract_type: 'Тип договора',
+      power: 'Электрическая мощность',
+      loading_lift: 'Грузовой лифт',
+      metro: 'Метро',
+      metro_distance: 'Расстояние до метро',
+      owner_type: 'Тип собственника',
+      is_negotiable: 'Договорная цена',
+      check_in: 'Время заезда',
+      check_out: 'Время выезда',
+      pets_allowed: 'Можно с животными',
+      smoking_allowed: 'Можно курить',
+      parties_allowed: 'Можно вечеринки',
+      tv: 'Телевизор',
+      washing_machine: 'Стиральная машина',
+      dishwasher: 'Посудомоечная машина'
+    };
+    return labels[key] || key.replace(/_/g, ' ');
+  };
+
+  // Функция для форматирования значений
+  const formatValue = (key, value) => {
+    if (value === null || value === undefined || value === '') return '-';
     
-    if (part.includes('д.')) {
-      house = part;
-    } else if (part.includes('ул.')) {
-      street = part;
-    } else if (
-      !part.match(/^\d{5,6}$/) && // не почтовый индекс
-      !part.includes('район') &&
-      !part.includes('область') &&
-      !part.includes('округ') &&
-      !part.includes('муниципальный')
-    ) {
-      // Первый подходящий элемент (с конца) - страна, следующий - город
-      if (!country) {
-        country = part;
-      } else if (!city) {
-        city = part;
+    // Булевые значения
+    if (typeof value === 'boolean') {
+      return value ? 'Да' : 'Нет';
+    }
+    
+    // Массивы (например, utilities)
+    if (Array.isArray(value)) {
+      return value.length > 0 ? value.join(', ') : 'Нет';
+    }
+    
+    // Числовые значения с единицами измерения
+    const unitMap = {
+      total_area: ' м²',
+      plot_area: ' соток',
+      living_area: ' м²',
+      kitchen_area: ' м²',
+      ceiling_height: ' м',
+      year_built: ' г.',
+      power: ' кВт',
+      metro_distance: ' мин.',
+      price: ' ₽'
+    };
+    
+    if (unitMap[key]) {
+      return `${value}${unitMap[key]}`;
+    }
+    
+    // Типы сделок
+    if (key === 'transaction_type') {
+      const types = {
+        buy: 'Купить',
+        sell: 'Продать',
+        rent: 'Снять',
+        rent_out: 'Сдать',
+        daily: 'Посуточно'
+      };
+      return types[value] || value;
+    }
+    
+    // Состояние
+    if (key === 'condition_detail') {
+      const conditions = {
+        needs_repair: 'Требует ремонта',
+        cosmetic_repair: 'Косметический ремонт',
+        euro_repair: 'Евро-ремонт',
+        designer_repair: 'Дизайнерский ремонт',
+        new_finish: 'Новая отделка',
+        none: 'Без отделки',
+        rough: 'Черновая',
+        clean: 'Чистовая',
+        euro: 'Евро',
+        designer: 'Дизайнерская'
+      };
+      return conditions[value] || value;
+    }
+    
+    // Типы дома
+    if (key === 'building_type') {
+      const types = {
+        panel: 'Панельный',
+        brick: 'Кирпичный',
+        monolith: 'Монолит',
+        wooden: 'Деревянный',
+        block: 'Блочный'
+      };
+      return types[value] || value;
+    }
+    
+    // Категория земли
+    if (key === 'land_category') {
+      const categories = {
+        IZHS: 'ИЖС',
+        LPH: 'ЛПХ',
+        SNT: 'СНТ',
+        dacha: 'Дачное',
+        commercial: 'Коммерческое',
+        agricultural: 'Сельхозугодия',
+        industrial: 'Промышленность'
+      };
+      return categories[value] || value;
+    }
+    
+    // Санузел
+    if (key === 'bathroom_type') {
+      const types = {
+        separate: 'Раздельный',
+        combined: 'Совмещённый',
+        two_or_more: 'Два и более',
+        multiple: 'Несколько'
+      };
+      return types[value] || value;
+    }
+    
+    // Балкон
+    if (key === 'balcony') {
+      const types = {
+        none: 'Нет',
+        balcony: 'Балкон',
+        loggia: 'Лоджия',
+        both: 'Балкон и лоджия'
+      };
+      return types[value] || value;
+    }
+    
+    // Лифт
+    if (key === 'lift') {
+      if (Array.isArray(value)) {
+        const liftTypes = {
+          passenger: 'Пассажирский',
+          cargo: 'Грузовой'
+        };
+        return value.map(v => liftTypes[v] || v).join(', ');
       }
     }
-  }
-  
-  // Собираем в правильной последовательности: страна, город, улица, дом
-  const resultParts = [];
-  if (country) resultParts.push({ text: country, type: 'country' });
-  if (city) resultParts.push({ text: city, type: 'city' });
-  if (street) resultParts.push({ text: street, type: 'street' });
-  if (house) resultParts.push({ text: house, type: 'house' });
-  
-  // Если не удалось классифицировать, возвращаем оригинальный адрес
-  if (resultParts.length === 0) {
-    return parts.map(part => ({ text: part, type: 'regular' }));
-  }
-  
-  return resultParts;
-};
+    
+    // Мебель
+    if (key === 'furniture') {
+      const types = {
+        none: 'Нет',
+        partial: 'Частично',
+        full: 'Полностью'
+      };
+      return types[value] || value;
+    }
+    
+    // Тип собственника
+    if (key === 'owner_type') {
+      const types = {
+        owner: 'Собственник',
+        agent: 'Агент',
+        agency: 'Агентство'
+      };
+      return types[value] || value;
+    }
+    
+    // Материал стен
+    if (key === 'wall_material') {
+      const materials = {
+        brick: 'Кирпич',
+        wood: 'Дерево',
+        foam_block: 'Пеноблок',
+        aerated_concrete: 'Газобетон',
+        frame: 'Каркасный'
+      };
+      return materials[value] || value;
+    }
+    
+    // Отопление
+    if (key === 'heating_system') {
+      const types = {
+        gas: 'Газовое',
+        electric: 'Электрическое',
+        solid_fuel: 'Твердотопливное',
+        central: 'Центральное'
+      };
+      return types[value] || value;
+    }
+    
+    // Рельеф
+    if (key === 'terrain') {
+      const types = {
+        flat: 'Ровный',
+        slope: 'Склон',
+        hilly: 'Холмистый',
+        forest: 'Лесной'
+      };
+      return types[value] || value;
+    }
+    
+    // Подъездные пути
+    if (key === 'access_road') {
+      const types = {
+        asphalt: 'Асфальт',
+        concrete: 'Бетон',
+        gravel: 'Гравий',
+        dirt: 'Грунт'
+      };
+      return types[value] || value;
+    }
+    
+    // Тип договора
+    if (key === 'contract_type') {
+      const types = {
+        ddu: 'ДДУ',
+        assignment: 'Переуступка',
+        participation: 'Договор участия'
+      };
+      return types[value] || value;
+    }
+    
+    // Тип гаража
+    if (key === 'property_type' && ad?.category_name?.includes('Гаражи')) {
+      const types = {
+        garage: 'Гараж',
+        parking_space: 'Машиноместо',
+        box: 'Бокс',
+        canopy: 'Навес'
+      };
+      return types[value] || value;
+    }
+    
+    // Тип комнаты
+    if (key === 'room_type') {
+      const types = {
+        isolated: 'Изолированная',
+        passage: 'Проходная'
+      };
+      return types[value] || value;
+    }
+    
+    // Тип планировки квартиры
+    if (key === 'property_type' && ad?.category_name?.includes('Квартиры')) {
+      const types = {
+        studio: 'Студия',
+        free: 'Свободная',
+        classic: 'Классическая',
+        euro: 'Евро'
+      };
+      return types[value] || value;
+    }
+    
+    // Тип дома/коттеджа
+    if (key === 'property_type' && (ad?.category_name?.includes('Дома') || ad?.category_name?.includes('Коттеджи') || ad?.category_name?.includes('Дачи'))) {
+      const types = {
+        house: 'Дом',
+        cottage: 'Коттедж',
+        dacha: 'Дача',
+        townhouse: 'Таунхаус'
+      };
+      return types[value] || value;
+    }
+    
+    return value;
+  };
+
+  // Группировка параметров по категориям
+  const getPropertyGroups = () => {
+    if (!ad?.property_details) return [];
+    
+    const propertyDetails = ad.property_details;
+    const groups = [];
+    
+    // Основные параметры (всегда показываем)
+    const mainParams = [
+      'transaction_type', 'total_area', 'rooms', 'floor', 'total_floors',
+      'building_type', 'condition_detail', 'furniture', 'bathroom_type',
+      'balcony', 'parking', 'ceiling_height', 'year_built'
+    ];
+    
+    const mainGroup = mainParams
+      .filter(key => propertyDetails[key] !== undefined && propertyDetails[key] !== '')
+      .map(key => ({
+        label: getFieldLabel(key),
+        value: formatValue(key, propertyDetails[key])
+      }));
+    
+    if (mainGroup.length > 0) {
+      groups.push({
+        title: 'Основные параметры',
+        items: mainGroup
+      });
+    }
+    
+    // Параметры для домов/коттеджей
+    const houseParams = [
+      'living_area', 'kitchen_area', 'wall_material', 'plot_area',
+      'land_category', 'heating_system', 'gas', 'water', 'electricity',
+      'sewage', 'garage', 'outbuildings', 'bathhouse', 'access_road'
+    ];
+    
+    const houseGroup = houseParams
+      .filter(key => propertyDetails[key] !== undefined && propertyDetails[key] !== '')
+      .map(key => ({
+        label: getFieldLabel(key),
+        value: formatValue(key, propertyDetails[key])
+      }));
+    
+    if (houseGroup.length > 0) {
+      groups.push({
+        title: 'Параметры дома',
+        items: houseGroup
+      });
+    }
+    
+    // Параметры для земельных участков
+    const landParams = [
+      'plot_area', 'land_category', 'allowed_use', 'utilities',
+      'terrain', 'access_road'
+    ];
+    
+    const landGroup = landParams
+      .filter(key => propertyDetails[key] !== undefined && propertyDetails[key] !== '')
+      .map(key => ({
+        label: getFieldLabel(key),
+        value: formatValue(key, propertyDetails[key])
+      }));
+    
+    if (landGroup.length > 0) {
+      groups.push({
+        title: 'Параметры участка',
+        items: landGroup
+      });
+    }
+    
+    // Параметры для новостроек
+    const newbuildingParams = [
+      'developer', 'project_name', 'delivery_date', 'contract_type',
+      'mortgage_friendly'
+    ];
+    
+    const newbuildingGroup = newbuildingParams
+      .filter(key => propertyDetails[key] !== undefined && propertyDetails[key] !== '')
+      .map(key => ({
+        label: getFieldLabel(key),
+        value: formatValue(key, propertyDetails[key])
+      }));
+    
+    if (newbuildingGroup.length > 0) {
+      groups.push({
+        title: 'Информация о новостройке',
+        items: newbuildingGroup
+      });
+    }
+    
+    // Параметры для посуточной аренды
+    const rentalParams = [
+      'bedrooms', 'guests', 'wifi', 'ac', 'parking', 'check_in', 'check_out',
+      'pets_allowed', 'smoking_allowed', 'parties_allowed', 'tv',
+      'washing_machine', 'dishwasher'
+    ];
+    
+    const rentalGroup = rentalParams
+      .filter(key => propertyDetails[key] !== undefined && propertyDetails[key] !== '')
+      .map(key => ({
+        label: getFieldLabel(key),
+        value: formatValue(key, propertyDetails[key])
+      }));
+    
+    if (rentalGroup.length > 0) {
+      groups.push({
+        title: 'Условия аренды',
+        items: rentalGroup
+      });
+    }
+    
+    // Параметры для отелей
+    const hotelParams = [
+      'rooms', 'guests', 'wifi', 'breakfast', 'parking', 'transfer',
+      'reception', 'cleaning', 'ac'
+    ];
+    
+    const hotelGroup = hotelParams
+      .filter(key => propertyDetails[key] !== undefined && propertyDetails[key] !== '')
+      .map(key => ({
+        label: getFieldLabel(key),
+        value: formatValue(key, propertyDetails[key])
+      }));
+    
+    if (hotelGroup.length > 0) {
+      groups.push({
+        title: 'Услуги отеля',
+        items: hotelGroup
+      });
+    }
+    
+    // Параметры для коммерческой недвижимости
+    const commercialParams = [
+      'power', 'loading_lift', 'entrance_type', 'rooms_count'
+    ];
+    
+    const commercialGroup = commercialParams
+      .filter(key => propertyDetails[key] !== undefined && propertyDetails[key] !== '')
+      .map(key => ({
+        label: getFieldLabel(key),
+        value: formatValue(key, propertyDetails[key])
+      }));
+    
+    if (commercialGroup.length > 0) {
+      groups.push({
+        title: 'Коммерческие параметры',
+        items: commercialGroup
+      });
+    }
+    
+    // Дополнительные параметры
+    const additionalParams = [
+      'metro', 'metro_distance', 'owner_type', 'is_negotiable'
+    ];
+    
+    const additionalGroup = additionalParams
+      .filter(key => propertyDetails[key] !== undefined && propertyDetails[key] !== '')
+      .map(key => ({
+        label: getFieldLabel(key),
+        value: formatValue(key, propertyDetails[key])
+      }));
+    
+    if (additionalGroup.length > 0) {
+      groups.push({
+        title: 'Дополнительная информация',
+        items: additionalGroup
+      });
+    }
+    
+    return groups;
+  };
+
+  // Форматирование адреса
+  const formatLocationForDetail = (location) => {
+    if (!location || location.trim() === '') {
+      return [{ text: 'Местоположение не указано', type: 'empty' }];
+    }
+    
+    const parts = location.split(', ');
+    let country = '';
+    let city = '';
+    let street = '';
+    let house = '';
+    
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const part = parts[i];
+      
+      if (part.includes('д.')) {
+        house = part;
+      } else if (part.includes('ул.')) {
+        street = part;
+      } else if (
+        !part.match(/^\d{5,6}$/) &&
+        !part.includes('район') &&
+        !part.includes('область') &&
+        !part.includes('округ') &&
+        !part.includes('муниципальный')
+      ) {
+        if (!country) {
+          country = part;
+        } else if (!city) {
+          city = part;
+        }
+      }
+    }
+    
+    const resultParts = [];
+    if (country) resultParts.push({ text: country, type: 'country' });
+    if (city) resultParts.push({ text: city, type: 'city' });
+    if (street) resultParts.push({ text: street, type: 'street' });
+    if (house) resultParts.push({ text: house, type: 'house' });
+    
+    if (resultParts.length === 0) {
+      return parts.map(part => ({ text: part, type: 'regular' }));
+    }
+    
+    return resultParts;
+  };
 
   // Получаем информацию о продавце
   const fetchSellerInfo = async (userId) => {
@@ -131,6 +605,7 @@ const formatLocationForDetail = (location) => {
   const totalPhotos = photos.length;
   const hasLocation = ad?.location && ad.location.trim() !== '';
   const formattedLocation = formatLocationForDetail(ad?.location);
+  const propertyGroups = getPropertyGroups();
 
   useEffect(() => {
     setCurrentPhotoIndex(0);
@@ -263,9 +738,11 @@ const formatLocationForDetail = (location) => {
       {/* Info */}
       <div style={detailContentStyle}>
         <h1 style={detailTitleStyle}>{ad?.title || 'Без названия'}</h1>
-        <h2 style={detailPriceStyle}>{formatPrice(ad?.price)}</h2>
+        <h2 style={detailPriceStyle}>
+          {ad?.property_details?.is_negotiable ? 'Цена договорная' : formatPrice(ad?.price)}
+        </h2>
         <p style={detailMetaStyle}>
-          Опубликовано {getTimeAgo(ad?.created_at)} • 123 просмотра
+          Опубликовано {getTimeAgo(ad?.created_at)} • {ad?.views || 0} просмотров
         </p>
 
         <div style={tagsStyle}>
@@ -273,6 +750,7 @@ const formatLocationForDetail = (location) => {
           <div style={tagGrayStyle}>{ad?.condition === 'new' ? 'Новое' : 'Б/у'}</div>
         </div>
 
+        {/* Основное описание */}
         <div style={sectionStyle}>
           <h3 style={sectionTitleStyle}>Описание</h3>
           <p style={sectionTextStyle}>
@@ -280,6 +758,29 @@ const formatLocationForDetail = (location) => {
           </p>
         </div>
 
+        {/* Параметры недвижимости */}
+              {propertyGroups.length > 0 && (
+        <div style={sectionStyle}>
+          <h3 style={sectionTitleStyle}>Характеристики</h3>
+          <div style={propertyDetailsContainerStyle}>
+            {propertyGroups.map((group, groupIndex) => (
+              <div key={groupIndex} style={propertyGroupStyle}>
+                <h4 style={propertyGroupTitleStyle}>{group.title}</h4>
+                <div style={propertyGridStyle}>
+                  {group.items.map((item, itemIndex) => (
+                    <div key={itemIndex} style={propertyItemStyle}>
+                      <span style={propertyLabelStyle}>{item.label}:</span>
+                      <span style={propertyValueStyle}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+        {/* Местоположение */}
         <div style={sectionStyle}>
           <h3 style={sectionTitleStyle}>Местоположение</h3>
           <div style={locationCardStyle}>
@@ -319,6 +820,7 @@ const formatLocationForDetail = (location) => {
           </div>
         </div>
 
+        {/* Продавец */}
         <div style={sectionStyle}>
           <h3 style={sectionTitleStyle}>Продавец</h3>
           <div style={sellerCardStyle}>
@@ -355,7 +857,7 @@ const formatLocationForDetail = (location) => {
   );
 }
 
-// Стили с обновленной цветовой палитрой
+// Стили (добавляем новые для параметров)
 const detailPageStyle = {
   backgroundColor: '#f6f6f8',
   minHeight: '100vh',
@@ -557,6 +1059,57 @@ const sectionTextStyle = {
   lineHeight: 1.5
 };
 
+// Новые стили для параметров недвижимости
+const propertyDetailsContainerStyle = {
+  backgroundColor: 'white',
+  borderRadius: 12,
+  overflow: 'hidden',
+  border: '1px solid #eee'
+};
+
+
+const propertyGroupStyle = {
+  borderBottom: '1px solid #eee',
+  padding: '16px'
+};
+
+const propertyGroupTitleStyle = {
+  fontSize: '15px',
+  fontWeight: '600',
+  color: '#0d121b',
+  marginBottom: '12px',
+  paddingBottom: '8px',
+  borderBottom: '1px solid #f0f0f0'
+};
+
+const propertyGridStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '10px'
+};
+
+const propertyItemStyle = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  fontSize: '14px',
+  lineHeight: '1.4',
+  padding: '4px 0'
+};
+
+const propertyLabelStyle = {
+  color: '#6b7280',
+  minWidth: '140px', // Фиксированная ширина для всех лейблов
+  flexShrink: 0,
+  paddingRight: '12px'
+};
+
+const propertyValueStyle = {
+  color: '#0d121b',
+  fontWeight: '500',
+  flex: 1,
+  wordBreak: 'break-word'
+};
+
 const locationCardStyle = {
   backgroundColor: 'white',
   borderRadius: 12,
@@ -591,33 +1144,33 @@ const locationAddressStyle = {
 const locationCountryStyle = {
   color: '#0d121b',
   fontSize: '16px'
-}
+};
 
 const locationCityStyle = {
   color: '#0d121b',
   fontSize: '16px'
-}
+};
 
 const locationStreetStyle = {
   color: '#0d121b',
   fontSize: '16px'
-}
+};
 
 const locationHouseStyle = {
   color: '#0d121b',
   fontSize: '16px'
-}
+};
 
 const locationRegularStyle = {
   color: '#0d121b',
   fontSize: '16px'
-}
+};
 
 const locationEmptyStyle = {
   color: '#0d121b',
   fontSize: '16px',
   fontStyle: 'italic'
-}
+};
 
 const mapLinkStyle = {
   display: 'flex',

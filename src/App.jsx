@@ -1,3 +1,4 @@
+// frontend/src/App.jsx
 import { useState, useEffect, createContext, useContext } from 'react'
 import Login from './components/Login'
 import Register from './components/Register'
@@ -6,7 +7,6 @@ import AdDetail from './components/AdDetail'
 import CreateAd from './components/CreateAd'
 import logo from './assets/logo.png'
 
-// Создаем контекст для кэширования
 const AppCacheContext = createContext()
 
 export const useAppCache = () => {
@@ -18,33 +18,32 @@ export const useAppCache = () => {
 }
 
 const AppCacheProvider = ({ children }) => {
-  const API_BASE = import.meta.env.DEV 
-    ? 'http://localhost:4000' 
-    : 'https://spacego-backend.onrender.com'
+  const API_BASE = import.meta.env.DEV
+    ? 'http://localhost:4000'
+    : 'https://spacego-backend.onrender.com' // Убраны лишние пробелы
 
   const [cache, setCache] = useState({
     ads: null,
-    categories: null,
+    categories: null, // Корневые категории
+    subcategories: {}, // Подкатегории, кэшируем по parentId
     lastUpdated: null
   })
 
-  // Загружаем данные при первом рендере
+  // Загружаем только корневые категории при первом рендере
   useEffect(() => {
     loadInitialData()
   }, [])
 
   const loadInitialData = async () => {
-    if (cache.ads && cache.categories) return // Данные уже загружены
-
+    if (cache.categories) return // Данные уже загружены
     try {
-      const [adsData, categoriesData] = await Promise.all([
-        fetchAds(),
-        fetchCategories()
-      ])
-
+      // При начальной загрузке вызываем без фильтров
+      const adsData = await fetchAds({});
+      const categoriesData = await fetchRootCategories()
       setCache({
         ads: adsData,
         categories: categoriesData,
+        subcategories: cache.subcategories,
         lastUpdated: Date.now()
       })
     } catch (error) {
@@ -52,44 +51,67 @@ const AppCacheProvider = ({ children }) => {
     }
   }
 
-  const fetchAds = async () => {
-    const res = await fetch(`${API_BASE}/api/ads`)
-    const data = await res.json()
-    
-    return data.map(ad => {
-      if (ad.photo_url && ad.photo_url.startsWith('[')) {
-        try {
-          ad.photo_urls = JSON.parse(ad.photo_url)
-        } catch (e) {
-          ad.photo_urls = []
-        }
-      } else if (ad.photo_url) {
-        ad.photo_urls = [ad.photo_url]
-      } else {
-        ad.photo_urls = []
+  // Обновляем fetchAds, чтобы он фильтровал undefined/пустые параметры
+  const fetchAds = async (filters = {}) => {
+    // Фильтруем параметры: удаляем undefined, null, пустые строки и false
+    const cleanFilters = {};
+    Object.keys(filters).forEach(key => {
+      const value = filters[key];
+      if (value !== undefined && value !== null && value !== '' && value !== false) {
+        cleanFilters[key] = value;
       }
-      return ad
-    })
-  }
+    });
 
-  const fetchCategories = async () => {
-    const res = await fetch(`${API_BASE}/api/categories`)
+    const queryParams = new URLSearchParams(cleanFilters).toString();
+    const url = `${API_BASE}/api/ads${queryParams ? '?' + queryParams : ''}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    return data.map(ad => {
+      if (!ad.photo_urls) {
+        ad.photo_urls = [];
+      }
+      if (ad.property_details) {
+        try {
+          if (typeof ad.property_details === 'string') {
+            ad.property_details = JSON.parse(ad.property_details);
+          }
+        } catch (e) {
+          console.error("Ошибка парсинга property_details:", e);
+          ad.property_details = {};
+        }
+      } else {
+        ad.property_details = {};
+      }
+      return ad;
+    });
+  }
+   
+  const fetchRootCategories = async () => {
+    const res = await fetch(`${API_BASE}/api/categories`) 
     return await res.json()
   }
 
-  const refreshData = async () => {
+  const fetchSubcategories = async (parentId) => {
+    const res = await fetch(`${API_BASE}/api/categories/${parentId}`)
+    return await res.json()
+  }
+
+  const refreshData = async (filters = {}) => { 
     try {
+      // Используем обновлённый fetchAds
       const [adsData, categoriesData] = await Promise.all([
-        fetchAds(),
-        fetchCategories()
+        fetchAds(filters), // Передаём фильтры
+        fetchRootCategories()
       ])
 
       setCache({
         ads: adsData,
         categories: categoriesData,
+        subcategories: {}, 
         lastUpdated: Date.now()
       })
-      
       return { ads: adsData, categories: categoriesData }
     } catch (error) {
       console.error('Ошибка обновления данных:', error)
@@ -106,17 +128,40 @@ const AppCacheProvider = ({ children }) => {
     }
   }
 
-  const value = {
-    ads: cache.ads,
-    categories: cache.categories,
-    lastUpdated: cache.lastUpdated,
-    refreshData,
-    addNewAd,
-    isLoading: !cache.ads || !cache.categories
-  }
+  // Добавляем функцию для получения подкатегорий с кэшированием
+  const getSubcategories = async (parentId) => {
+    // Проверяем кэш
+    if (cache.subcategories[parentId]) {
+      return cache.subcategories[parentId];
+    }
+
+    try {
+      const subcats = await fetchSubcategories(parentId);
+      // Обновляем кэш
+      setCache(prev => ({
+        ...prev,
+        subcategories: {
+          ...prev.subcategories,
+          [parentId]: subcats
+        }
+      }));
+      return subcats;
+    } catch (error) {
+      console.error(`Ошибка загрузки подкатегорий для parentId ${parentId}:`, error);
+      return [];
+    }
+  };
 
   return (
-    <AppCacheContext.Provider value={value}>
+    <AppCacheContext.Provider
+      value={{
+        ...cache,
+        refreshData, // Теперь refreshData принимает фильтры
+        addNewAd,
+        fetchRootCategories,
+        getSubcategories
+      }}
+    >
       {children}
     </AppCacheContext.Provider>
   )
@@ -125,7 +170,7 @@ const AppCacheProvider = ({ children }) => {
 function AppContent() {
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
-    : 'https://spacego-backend.onrender.com'
+    : 'https://spacego-backend.onrender.com' // Убраны лишние пробелы
 
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [token, setToken] = useState('')
