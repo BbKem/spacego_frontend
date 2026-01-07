@@ -8,6 +8,15 @@ function TelegramInit({ children, onAuthSuccess }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    console.log('=== TELEGRAM INIT DEBUG ===');
+  console.log('window.location.href:', window.location.href);
+  console.log('window.Telegram:', window.Telegram);
+  console.log('window.Telegram?.WebApp:', window.Telegram?.WebApp);
+  console.log('navigator.userAgent:', navigator.userAgent);
+  
+  // Проверяем параметры в URL
+  const urlParams = new URLSearchParams(window.location.search);
+  console.log('URL params:', Object.fromEntries(urlParams.entries()));
     const initTelegram = async () => {
       try {
         console.log('Starting Telegram initialization...');
