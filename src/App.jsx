@@ -1,7 +1,6 @@
 // frontend/src/App.jsx
 import { useState, useEffect, createContext, useContext } from 'react'
-import Login from './components/Login'
-import Register from './components/Register'
+import TelegramInit from './components/TelegramInit'
 import Home from './components/Home'
 import AdDetail from './components/AdDetail'
 import CreateAd from './components/CreateAd'
@@ -20,24 +19,22 @@ export const useAppCache = () => {
 const AppCacheProvider = ({ children }) => {
   const API_BASE = import.meta.env.DEV
     ? 'http://localhost:4000'
-    : 'https://spacego-backend.onrender.com' // Убраны лишние пробелы
+    : 'https://spacego-backend.onrender.com'
 
   const [cache, setCache] = useState({
     ads: null,
-    categories: null, // Корневые категории
-    subcategories: {}, // Подкатегории, кэшируем по parentId
+    categories: null,
+    subcategories: {},
     lastUpdated: null
   })
 
-  // Загружаем только корневые категории при первом рендере
   useEffect(() => {
     loadInitialData()
   }, [])
 
   const loadInitialData = async () => {
-    if (cache.categories) return // Данные уже загружены
+    if (cache.categories) return
     try {
-      // При начальной загрузке вызываем без фильтров
       const adsData = await fetchAds({});
       const categoriesData = await fetchRootCategories()
       setCache({
@@ -51,9 +48,7 @@ const AppCacheProvider = ({ children }) => {
     }
   }
 
-  // Обновляем fetchAds, чтобы он фильтровал undefined/пустые параметры
   const fetchAds = async (filters = {}) => {
-    // Фильтруем параметры: удаляем undefined, null, пустые строки и false
     const cleanFilters = {};
     Object.keys(filters).forEach(key => {
       const value = filters[key];
@@ -100,9 +95,8 @@ const AppCacheProvider = ({ children }) => {
 
   const refreshData = async (filters = {}) => { 
     try {
-      // Используем обновлённый fetchAds
       const [adsData, categoriesData] = await Promise.all([
-        fetchAds(filters), // Передаём фильтры
+        fetchAds(filters),
         fetchRootCategories()
       ])
 
@@ -128,16 +122,13 @@ const AppCacheProvider = ({ children }) => {
     }
   }
 
-  // Добавляем функцию для получения подкатегорий с кэшированием
   const getSubcategories = async (parentId) => {
-    // Проверяем кэш
     if (cache.subcategories[parentId]) {
       return cache.subcategories[parentId];
     }
 
     try {
       const subcats = await fetchSubcategories(parentId);
-      // Обновляем кэш
       setCache(prev => ({
         ...prev,
         subcategories: {
@@ -156,7 +147,7 @@ const AppCacheProvider = ({ children }) => {
     <AppCacheContext.Provider
       value={{
         ...cache,
-        refreshData, // Теперь refreshData принимает фильтры
+        refreshData,
         addNewAd,
         fetchRootCategories,
         getSubcategories
@@ -168,207 +159,170 @@ const AppCacheProvider = ({ children }) => {
 }
 
 function AppContent() {
-  const API_BASE = import.meta.env.DEV 
-    ? 'http://localhost:4000' 
-    : 'https://spacego-backend.onrender.com' // Убраны лишние пробелы
-
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [token, setToken] = useState('')
-  const [user, setUser] = useState(null)
-  const [currentPage, setCurrentPage] = useState('home')
-  const [selectedAd, setSelectedAd] = useState(null)
-
-  const { refreshData, addNewAd } = useAppCache()
+  const [user, setUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState('home');
+  const [selectedAd, setSelectedAd] = useState(null);
+  const [isTelegramApp, setIsTelegramApp] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('token')
-    if (saved) {
-      setToken(saved)
-      setIsLoggedIn(true)
-      fetchUser()
+    // Проверяем, запущено ли приложение в Telegram
+    const isInTelegram = window.Telegram && window.Telegram.WebApp;
+    setIsTelegramApp(!!isInTelegram);
+    
+    // Пробуем получить сохранённого пользователя
+    const savedUser = localStorage.getItem('telegram_user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
     }
-  }, [token])
+  }, []);
 
-  const fetchUser = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/user`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const data = await res.json()
-      if (res.ok) setUser(data.user)
-    } catch (err) {
-      console.error('Ошибка загрузки профиля')
-    }
-  }
+  const handleTelegramAuthSuccess = (userData) => {
+    setUser(userData);
+    setCurrentPage('home');
+  };
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    setToken('')
-    setIsLoggedIn(false)
-    setUser(null)
-    setCurrentPage('home')
-    setSelectedAd(null)
-  }
+    localStorage.removeItem('telegram_user');
+    localStorage.removeItem('telegram_init_data');
+    localStorage.removeItem('token'); // На всякий случай удаляем старый токен
+    setUser(null);
+    setCurrentPage('home');
+    setSelectedAd(null);
+    
+    // Если в Telegram WebApp - закрываем или показываем сообщение
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.close();
+    }
+  };
 
   const viewAd = (ad) => {
-    setSelectedAd(ad)
-    setCurrentPage('ad-detail')
-  }
+    setSelectedAd(ad);
+    setCurrentPage('ad-detail');
+  };
 
   const handleAdCreated = (ad) => {
-    console.log('Новое объявление создано:', ad)
-    // Добавляем новое объявление в кэш
-    addNewAd(ad)
-    setCurrentPage('home')
-  }
+    console.log('Новое объявление создано:', ad);
+    setCurrentPage('home');
+  };
 
-  // Обработчики для навигации между экранами аутентификации
-  const goToLogin = () => setCurrentPage('login')
-  const goToRegister = () => setCurrentPage('register')
-  const handleLoginSuccess = () => {
-    setIsLoggedIn(true)
-    setCurrentPage('home')
-    // Получаем токен из localStorage и обновляем состояние
-    const savedToken = localStorage.getItem('token')
-    if (savedToken) {
-      setToken(savedToken)
-    }
-  }
-
-  if (!isLoggedIn) {
+  // Если не в Telegram и нет пользователя - показываем информационную страницу
+  if (!isTelegramApp && !user) {
     return (
-      <div style={pageStyle}>
-        {currentPage === 'login' && (
-          <Login 
-            onLoginSuccess={handleLoginSuccess}
-            onGoToRegister={goToRegister}
-          />
-        )}
-        {currentPage === 'register' && (
-          <Register 
-            onRegisterSuccess={goToLogin}
-            onGoToLogin={goToLogin}
-          />
-        )}
-        {currentPage === 'home' && (
-          <div style={authLandingStyle}>
-            {/* Логотип */}
-            <div style={logoStyle}>
-              <img src={logo} alt="Spacego" style={logoImageStyle} />
-            </div>
-            <p style={authSubtitleStyle}>Войдите в свой аккаунт Spacego</p>
-            <div style={authButtonsStyle}>
-              <button onClick={goToLogin} style={primaryButtonStyle}>Войти</button>
-              <p style={switchText}>Нет аккаунта? <button onClick={goToRegister} style={linkStyle}>Зарегистрироваться</button></p>
-            </div>
+      <div style={infoPageStyle}>
+        <div style={logoStyle}>
+          <img src={logo} alt="Spacego" style={logoImageStyle} />
+        </div>
+        <h1 style={infoTitleStyle}>SpaceGo</h1>
+        <p style={infoTextStyle}>
+          Это приложение работает только внутри Telegram.
+          Откройте его через Telegram бота для использования.
+        </p>
+        <div style={qrCodeStyle}>
+          <div style={qrPlaceholderStyle}>
+            <span className="material-symbols-outlined" style={{ fontSize: 64, color: '#46A8C1' }}>
+              qr_code
+            </span>
+            <p style={{ marginTop: 16 }}>Отсканируйте QR-код бота</p>
           </div>
-        )}
+        </div>
       </div>
-    )
+    );
   }
+
+  // Обёртка для Telegram инициализации
+  const AppWrapper = ({ children }) => {
+    if (isTelegramApp && !user) {
+      return (
+        <TelegramInit onAuthSuccess={handleTelegramAuthSuccess}>
+          {children}
+        </TelegramInit>
+      );
+    }
+    return children;
+  };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f6f6f8', fontFamily: "'Space Grotesk', sans-serif" }}>
-      {currentPage === 'home' && (
-        <Home 
-          user={user} 
-          onLogout={handleLogout} 
-          onViewAd={viewAd}
-          onCreateAd={() => setCurrentPage('create-ad')}
-        />
-      )}
-      {currentPage === 'ad-detail' && <AdDetail ad={selectedAd} onBack={() => setCurrentPage('home')} />}
-      {currentPage === 'create-ad' && (
-        <CreateAd 
-          onBack={() => setCurrentPage('home')} 
-          onAdCreated={handleAdCreated}
-        />
-      )}
-    </div>
-  )
+    <AppWrapper>
+      <div style={{ minHeight: '100vh', backgroundColor: '#f6f6f8', fontFamily: "'Space Grotesk', sans-serif" }}>
+        {currentPage === 'home' && (
+          <Home 
+            user={user} 
+            onLogout={handleLogout} 
+            onViewAd={viewAd}
+            onCreateAd={() => setCurrentPage('create-ad')}
+          />
+        )}
+        {currentPage === 'ad-detail' && <AdDetail ad={selectedAd} onBack={() => setCurrentPage('home')} />}
+        {currentPage === 'create-ad' && (
+          <CreateAd 
+            onBack={() => setCurrentPage('home')} 
+            onAdCreated={handleAdCreated}
+          />
+        )}
+      </div>
+    </AppWrapper>
+  );
 }
+
+// Стили для информационной страницы
+const infoPageStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: '100vh',
+  padding: '20px',
+  backgroundColor: '#f6f6f8',
+  textAlign: 'center'
+};
+
+const logoStyle = {
+  width: 120,
+  height: 120,
+  marginBottom: 24
+};
+
+const logoImageStyle = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'contain'
+};
+
+const infoTitleStyle = {
+  fontSize: 28,
+  fontWeight: 'bold',
+  color: '#0d121b',
+  marginBottom: 16
+};
+
+const infoTextStyle = {
+  fontSize: 16,
+  color: '#4b5563',
+  maxWidth: 400,
+  marginBottom: 32,
+  lineHeight: 1.5
+};
+
+const qrCodeStyle = {
+  marginTop: 32
+};
+
+const qrPlaceholderStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  padding: 24,
+  backgroundColor: 'white',
+  borderRadius: 12,
+  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+};
 
 function App() {
   return (
     <AppCacheProvider>
       <AppContent />
     </AppCacheProvider>
-  )
+  );
 }
 
-// Обновленные стили с новой цветовой палитрой
-const pageStyle = {
-  display: 'flex',
-  height: '100vh',
-  width: '100%',
-  justifyContent: 'center',
-  alignItems: 'center',
-  backgroundColor: '#f6f6f8'
-}
-
-const authLandingStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  maxWidth: '400px',
-  width: '100%',
-  padding: '0 20px'
-}
-
-const logoStyle = {
-  width: 120,
-  height: 120,
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  marginBottom: 32
-}
-
-const logoImageStyle = {
-  width: 500,
-  height: 500,
-  objectFit: 'contain'
-}
-
-const authSubtitleStyle = {
-  fontSize: 16,
-  textAlign: 'center',
-  color: '#46A8C1',
-  marginBottom: 32
-}
-
-const authButtonsStyle = {
-  width: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 32
-}
-
-const primaryButtonStyle = {
-  height: 56,
-  width: '100%',
-  borderRadius: 12,
-  backgroundColor: '#46A8C1',
-  color: 'white',
-  fontSize: 16,
-  fontWeight: 'bold',
-  border: 'none',
-  cursor: 'pointer'
-}
-
-const switchText = {
-  fontSize: 14,
-  color: '#4c669a',
-  textAlign: 'center'
-}
-
-const linkStyle = {
-  color: '#46A8C1',
-  fontWeight: 'bold',
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  textDecoration: 'underline'
-}
-
-export default App
+export default App;

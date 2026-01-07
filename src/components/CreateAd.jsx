@@ -362,7 +362,6 @@ function CreateAd({ onBack, onAdCreated }) {
   return errors
 }
 
-  // 🔴 ОБНОВЛЁННЫЙ handleSubmit
   const handleSubmit = async () => {
     const errors = validateForm()
     setFieldErrors(errors)
@@ -384,7 +383,7 @@ function CreateAd({ onBack, onAdCreated }) {
     setUploading(true)
 
     try {
-      const token = localStorage.getItem('token')
+      const initData = localStorage.getItem('telegram_init_data');
       const formDataToSend = new FormData()
       formDataToSend.append('title', formData.title)
       formDataToSend.append('description', formData.description)
@@ -400,7 +399,7 @@ function CreateAd({ onBack, onAdCreated }) {
 
       const res = await fetch(`${API_BASE}/api/ads`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { 'telegram-init-data': initData },
         body: formDataToSend
       })
 

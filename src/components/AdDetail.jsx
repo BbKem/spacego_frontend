@@ -585,12 +585,12 @@ function AdDetail({ ad, onBack }) {
         ? 'http://localhost:4000' 
         : 'https://spacego-backend.onrender.com';
       
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/user/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+     const initData = localStorage.getItem('telegram_init_data');
+const response = await fetch(`${API_BASE}/api/user/${userId}`, {
+  headers: {
+    'telegram-init-data': initData
+  }
+});
       
       if (response.ok) {
         const sellerData = await response.json();
@@ -1098,7 +1098,7 @@ const propertyItemStyle = {
 
 const propertyLabelStyle = {
   color: '#6b7280',
-  minWidth: '140px', // Фиксированная ширина для всех лейблов
+  minWidth: '140px', 
   flexShrink: 0,
   paddingRight: '12px'
 };

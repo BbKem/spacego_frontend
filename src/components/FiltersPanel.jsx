@@ -63,7 +63,7 @@ garage_type: { label: 'Тип гаража', type: 'select', options: ['', 'gara
   floor: { label: 'Этаж', type: 'number', group: 'Гаражи и машиноместа' },
 
   // Недвижимость - новостройки
-  completion_quarter: { label: 'Сдача (кварта)', type: 'select', options: ['', 'Q1', 'Q2', 'Q3', 'Q4'], group: 'Новостройки' },
+  completion_quarter: { label: 'Сдача (квартал)', type: 'select', options: ['', 'Q1', 'Q2', 'Q3', 'Q4'], group: 'Новостройки' },
   completion_year: { label: 'Сдача (год)', type: 'number', group: 'Новостройки' },
   finish_type: { label: 'Отделка', type: 'select', options: ['', 'rough', 'finish'], group: 'Новостройки' },
   developer: { label: 'Застройщик', type: 'text', group: 'Новостройки' },
@@ -336,13 +336,14 @@ const filtersPanelStyle = {
   right: 0,
   height: '100vh',
   width: '100%',
-  maxWidth: '400px', // Максимальная ширина для десктопа
+  maxWidth: '100%', // Изменено с 400px
   backgroundColor: 'white',
   boxShadow: '-2px 0 10px rgba(0,0,0,0.1)',
   zIndex: 1001,
   display: 'flex',
   flexDirection: 'column',
-};
+  overflow: 'hidden'
+}
 
 const headerStyle = {
   padding: '16px',
@@ -375,8 +376,11 @@ const scrollableContentStyle = {
   flex: 1,
   overflowY: 'auto',
   padding: '16px',
-  paddingBottom: '80px', // Отступ для кнопок внизу
-};
+  paddingBottom: '80px',
+  width: '100%',
+  boxSizing: 'border-box',
+  WebkitOverflowScrolling: 'touch'
+}
 
 const sectionStyle = {
   marginBottom: '20px',
