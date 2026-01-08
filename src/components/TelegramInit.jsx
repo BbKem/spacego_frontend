@@ -1,115 +1,71 @@
 // frontend/src/components/TelegramInit.jsx
 import { useEffect, useState } from 'react';
-import { retrieveLaunchParams } from '@telegram-apps/sdk';
 
 function TelegramInit({ children, onAuthSuccess }) {
-  const [initData, setInitData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Функция для отправки логов на бэкенд
-  const sendLog = async (level, message, data = {}) => {
-    try {
-      const API_BASE = import.meta.env.DEV 
-        ? 'http://localhost:4000' 
-        : 'https://spacego-backend.onrender.com';
-      
-      await fetch(`${API_BASE}/api/log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          level,
-          message,
-          data: {
-            ...data,
-            url: window.location.href,
-            userAgent: navigator.userAgent,
-            timestamp: new Date().toISOString()
-          }
-        })
-      });
-    } catch (e) {
-      console.error('Failed to send log:', e);
-    }
+  // Функция для извлечения tgWebAppData из URL hash
+  const extractTelegramDataFromHash = () => {
+    const hash = window.location.hash.substring(1); // Убираем #
+    const params = new URLSearchParams(hash);
+    
+    const tgWebAppData = params.get('tgWebAppData');
+    const platform = params.get('tgWebAppPlatform');
+    const version = params.get('tgWebAppVersion');
+    
+    console.log('Extracted from hash:', { tgWebAppData, platform, version });
+    
+    return { tgWebAppData, platform, version };
   };
 
   useEffect(() => {
     const initTelegram = async () => {
       try {
-        await sendLog('info', 'TelegramInit started');
+        console.log('=== TELEGRAM INIT DEBUG ===');
+        console.log('Full URL:', window.location.href);
+        console.log('Hash:', window.location.hash);
         
-        // Проверяем наличие Telegram WebApp
-        if (!window.Telegram || !window.Telegram.WebApp) {
-          const errorMsg = 'Telegram WebApp not found in window object';
-          await sendLog('warn', errorMsg, {
-            windowTelegram: !!window.Telegram,
-            TelegramWebApp: !!window.Telegram?.WebApp
-          });
-          setError(errorMsg);
+        // Пробуем получить данные из URL hash
+        const { tgWebAppData, platform, version } = extractTelegramDataFromHash();
+        
+        if (!tgWebAppData) {
+          console.warn('No tgWebAppData found in URL');
+          setError('Не удалось получить данные авторизации из Telegram');
           setIsLoading(false);
           return;
         }
 
-        // Инициализируем Telegram WebApp
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-        
-        await sendLog('info', 'Telegram WebApp initialized', {
-          platform: window.Telegram.WebApp.platform,
-          version: window.Telegram.WebApp.version
+        console.log('Telegram data found:', {
+          platform,
+          version,
+          dataLength: tgWebAppData.length
         });
 
-        // Получаем данные запуска из Telegram
-        const { initDataRaw, initData } = retrieveLaunchParams();
-        
-        await sendLog('info', 'Retrieved launch params', {
-          hasInitDataRaw: !!initDataRaw,
-          hasInitData: !!initData
-        });
-
-        if (!initDataRaw) {
-          const errorMsg = 'No initDataRaw received from Telegram';
-          await sendLog('error', errorMsg);
-          setError(errorMsg);
-          setIsLoading(false);
-          return;
-        }
-
-        setInitData(initDataRaw);
-        
         // Отправляем данные на сервер для проверки и авторизации
         const API_BASE = import.meta.env.DEV 
           ? 'http://localhost:4000' 
           : 'https://spacego-backend.onrender.com';
         
-        await sendLog('info', 'Sending auth request', {
-          apiBase: API_BASE,
-          initDataLength: initDataRaw.length
-        });
+        console.log('Sending auth request to:', API_BASE);
         
         const response = await fetch(`${API_BASE}/api/telegram-auth`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'telegram-init-data': initDataRaw
+            'telegram-init-data': tgWebAppData
           }
         });
 
-        await sendLog('info', 'Auth response received', {
-          status: response.status,
-          statusText: response.statusText
-        });
+        console.log('Auth response status:', response.status);
 
         if (response.ok) {
           const data = await response.json();
-          await sendLog('info', 'Telegram auth success', {
-            userId: data.user?.id,
-            username: data.user?.username
-          });
+          console.log('Telegram auth success:', data);
           
           // Сохраняем пользователя в localStorage
           localStorage.setItem('telegram_user', JSON.stringify(data.user));
-          localStorage.setItem('telegram_init_data', initDataRaw);
+          localStorage.setItem('telegram_init_data', tgWebAppData);
           
           // Вызываем callback
           if (onAuthSuccess) {
@@ -117,18 +73,12 @@ function TelegramInit({ children, onAuthSuccess }) {
           }
         } else {
           const errorText = await response.text();
-          await sendLog('error', 'Telegram auth failed', {
-            status: response.status,
-            errorText
-          });
-          setError(`Auth failed: ${errorText}`);
+          console.error('Telegram auth failed:', errorText);
+          setError(`Ошибка авторизации: ${errorText}`);
         }
       } catch (error) {
-        await sendLog('error', 'Error initializing Telegram', {
-          errorMessage: error.message,
-          errorStack: error.stack
-        });
-        setError(error.message);
+        console.error('Error initializing Telegram:', error);
+        setError(`Ошибка: ${error.message}`);
       } finally {
         setIsLoading(false);
       }
@@ -142,6 +92,9 @@ function TelegramInit({ children, onAuthSuccess }) {
       <div style={loadingStyle}>
         <div style={spinnerStyle}></div>
         <p>Инициализация Telegram...</p>
+        <p style={{ fontSize: 12, color: '#666', marginTop: 10 }}>
+          URL: {window.location.href.substring(0, 50)}...
+        </p>
       </div>
     );
   }
@@ -150,7 +103,14 @@ function TelegramInit({ children, onAuthSuccess }) {
     return (
       <div style={errorStyle}>
         <h3>Ошибка инициализации Telegram</h3>
-        <p>{error}</p>
+        <p style={{ marginBottom: 20 }}>{error}</p>
+        <div style={{ textAlign: 'left', backgroundColor: '#f0f0f0', padding: 10, borderRadius: 5, marginBottom: 20 }}>
+          <small>
+            <strong>Debug info:</strong><br/>
+            URL: {window.location.href}<br/>
+            Hash: {window.location.hash || '(empty)'}
+          </small>
+        </div>
         <button 
           style={retryButtonStyle}
           onClick={() => window.location.reload()}
@@ -170,7 +130,9 @@ const loadingStyle = {
   justifyContent: 'center',
   alignItems: 'center',
   height: '100vh',
-  backgroundColor: '#f6f6f8'
+  backgroundColor: '#f6f6f8',
+  padding: '20px',
+  textAlign: 'center'
 };
 
 const errorStyle = {
@@ -202,5 +164,15 @@ const spinnerStyle = {
   borderRadius: '50%',
   animation: 'spin 1s linear infinite'
 };
+
+// Добавляем стили для анимации
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default TelegramInit;
