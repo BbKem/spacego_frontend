@@ -7,37 +7,70 @@ function TelegramInit({ children, onAuthSuccess }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Функция для отправки логов на бэкенд
+  const sendLog = async (level, message, data = {}) => {
+    try {
+      const API_BASE = import.meta.env.DEV 
+        ? 'http://localhost:4000' 
+        : 'https://spacego-backend.onrender.com';
+      
+      await fetch(`${API_BASE}/api/log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level,
+          message,
+          data: {
+            ...data,
+            url: window.location.href,
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString()
+          }
+        })
+      });
+    } catch (e) {
+      console.error('Failed to send log:', e);
+    }
+  };
+
   useEffect(() => {
-    console.log('=== TELEGRAM INIT DEBUG ===');
-  console.log('window.location.href:', window.location.href);
-  console.log('window.Telegram:', window.Telegram);
-  console.log('window.Telegram?.WebApp:', window.Telegram?.WebApp);
-  console.log('navigator.userAgent:', navigator.userAgent);
-  
-  // Проверяем параметры в URL
-  const urlParams = new URLSearchParams(window.location.search);
-  console.log('URL params:', Object.fromEntries(urlParams.entries()));
     const initTelegram = async () => {
       try {
-        console.log('Starting Telegram initialization...');
+        await sendLog('info', 'TelegramInit started');
         
         // Проверяем наличие Telegram WebApp
         if (!window.Telegram || !window.Telegram.WebApp) {
-          console.warn('Telegram WebApp not found in window object');
-          setError('Telegram WebApp not found');
+          const errorMsg = 'Telegram WebApp not found in window object';
+          await sendLog('warn', errorMsg, {
+            windowTelegram: !!window.Telegram,
+            TelegramWebApp: !!window.Telegram?.WebApp
+          });
+          setError(errorMsg);
           setIsLoading(false);
           return;
         }
 
+        // Инициализируем Telegram WebApp
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+        
+        await sendLog('info', 'Telegram WebApp initialized', {
+          platform: window.Telegram.WebApp.platform,
+          version: window.Telegram.WebApp.version
+        });
+
         // Получаем данные запуска из Telegram
         const { initDataRaw, initData } = retrieveLaunchParams();
         
-        console.log('Telegram initDataRaw:', initDataRaw);
-        console.log('Telegram initData:', initData);
+        await sendLog('info', 'Retrieved launch params', {
+          hasInitDataRaw: !!initDataRaw,
+          hasInitData: !!initData
+        });
 
         if (!initDataRaw) {
-          console.warn('No initDataRaw received from Telegram');
-          setError('No authentication data from Telegram');
+          const errorMsg = 'No initDataRaw received from Telegram';
+          await sendLog('error', errorMsg);
+          setError(errorMsg);
           setIsLoading(false);
           return;
         }
@@ -49,7 +82,10 @@ function TelegramInit({ children, onAuthSuccess }) {
           ? 'http://localhost:4000' 
           : 'https://spacego-backend.onrender.com';
         
-        console.log('Sending auth request to:', `${API_BASE}/api/telegram-auth`);
+        await sendLog('info', 'Sending auth request', {
+          apiBase: API_BASE,
+          initDataLength: initDataRaw.length
+        });
         
         const response = await fetch(`${API_BASE}/api/telegram-auth`, {
           method: 'POST',
@@ -59,11 +95,17 @@ function TelegramInit({ children, onAuthSuccess }) {
           }
         });
 
-        console.log('Auth response status:', response.status);
+        await sendLog('info', 'Auth response received', {
+          status: response.status,
+          statusText: response.statusText
+        });
 
         if (response.ok) {
           const data = await response.json();
-          console.log('Telegram auth success:', data);
+          await sendLog('info', 'Telegram auth success', {
+            userId: data.user?.id,
+            username: data.user?.username
+          });
           
           // Сохраняем пользователя в localStorage
           localStorage.setItem('telegram_user', JSON.stringify(data.user));
@@ -75,11 +117,17 @@ function TelegramInit({ children, onAuthSuccess }) {
           }
         } else {
           const errorText = await response.text();
-          console.error('Telegram auth failed:', errorText);
+          await sendLog('error', 'Telegram auth failed', {
+            status: response.status,
+            errorText
+          });
           setError(`Auth failed: ${errorText}`);
         }
       } catch (error) {
-        console.error('Error initializing Telegram:', error);
+        await sendLog('error', 'Error initializing Telegram', {
+          errorMessage: error.message,
+          errorStack: error.stack
+        });
         setError(error.message);
       } finally {
         setIsLoading(false);
