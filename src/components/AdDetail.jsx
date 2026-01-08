@@ -641,6 +641,39 @@ function AdDetail({ ad, onBack }) {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
   };
 
+  // Функция для открытия Telegram с предзаполненным сообщением
+const openTelegramChat = (username, adTitle = '') => {
+  if (!username) {
+    alert('У пользователя нет username в Telegram');
+    return;
+  }
+  
+  // Создаём текст сообщения
+  let message = 'Здравствуйте! Пишу по поводу объявления на SpaceGo.';
+  
+  if (adTitle) {
+    message += `\n\nОбъявление: "${adTitle}"`;
+  }
+  
+  message += '\n\nМожем обсудить детали?';
+  
+  // Кодируем сообщение для URL
+  const encodedMessage = encodeURIComponent(message);
+  
+  // Ссылка с предзаполненным сообщением
+  const telegramUrl = `https://t.me/${username}?text=${encodedMessage}`;
+  
+  console.log('Opening Telegram URL:', telegramUrl);
+  
+  // Пытаемся открыть через Telegram WebApp если внутри Telegram
+  if (window.Telegram && window.Telegram.WebApp) {
+    window.Telegram.WebApp.openTelegramLink(telegramUrl);
+  } else {
+    // Иначе обычная ссылка
+    window.open(telegramUrl, '_blank');
+  }
+};
+
   return (
     <div style={detailPageStyle}>
       {/* Header */}
@@ -858,20 +891,20 @@ function AdDetail({ ad, onBack }) {
 
       {/* Footer */}
       <div style={detailFooterStyle}>
-        <button 
-          style={footerButtonSecondaryStyle}
-          onClick={() => {
-            if (ad.user_username) {
-              // Открываем Telegram чат с пользователем
-              window.open(`https://t.me/${ad.user_username}`, '_blank');
-            } else {
-              alert('У пользователя нет username в Telegram');
-            }
-          }}
-        >
-          <span className="material-symbols-outlined">chat_bubble</span>
-          <span>Написать в TG</span>
-        </button>
+       <button 
+      style={footerButtonSecondaryStyle}
+      onClick={() => {
+    if (ad.user_username) {
+      // Открываем Telegram чат с пользователем с предзаполненным сообщением
+      openTelegramChat(ad.user_username, ad.title);
+    } else {
+      alert('У пользователя нет username в Telegram');
+    }
+  }}
+>
+  <span className="material-symbols-outlined">chat_bubble</span>
+  <span>Написать в TG</span>
+</button>
         
         <button 
           style={footerButtonPrimaryStyle}
