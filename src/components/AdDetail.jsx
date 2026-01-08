@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 
 function AdDetail({ ad, onBack }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [seller, setSeller] = useState(null);
   const [imageErrors, setImageErrors] = useState({});
 
   // Получаем массив фотографий
@@ -576,29 +575,36 @@ function AdDetail({ ad, onBack }) {
     return resultParts;
   };
 
-  // Получаем информацию о продавце
-  const fetchSellerInfo = async (userId) => {
-    if (!userId) return;
-    
-    try {
-      const API_BASE = import.meta.env.DEV 
-        ? 'http://localhost:4000' 
-        : 'https://spacego-backend.onrender.com';
-      
-     const initData = localStorage.getItem('telegram_init_data');
-const response = await fetch(`${API_BASE}/api/user/${userId}`, {
-  headers: {
-    'telegram-init-data': initData
-  }
-});
-      
-      if (response.ok) {
-        const sellerData = await response.json();
-        setSeller(sellerData.user);
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки данных продавца:', error);
+  const getInitialsFromTelegram = (user) => {
+    if (!user) return 'П';
+    if (user.user_first_name) {
+      return user.user_first_name[0].toUpperCase();
     }
+    if (user.user_username) {
+      return user.user_username[0].toUpperCase();
+    }
+    return 'П';
+  };
+
+  const getNameFromTelegram = (user) => {
+    if (!user) return 'Пользователь';
+    
+    // Если есть имя и фамилия
+    if (user.user_first_name && user.user_last_name) {
+      return `${user.user_first_name} ${user.user_last_name}`;
+    }
+    
+    // Если только имя
+    if (user.user_first_name) {
+      return user.user_first_name;
+    }
+    
+    // Если только username
+    if (user.user_username) {
+      return `@${user.user_username}`;
+    }
+    
+    return 'Пользователь';
   };
 
   const photos = getPhotos();
@@ -609,9 +615,6 @@ const response = await fetch(`${API_BASE}/api/user/${userId}`, {
 
   useEffect(() => {
     setCurrentPhotoIndex(0);
-    if (ad?.user_id) {
-      fetchSellerInfo(ad.user_id);
-    }
   }, [ad]);
 
   const nextPhoto = () => {
@@ -628,27 +631,6 @@ const response = await fetch(`${API_BASE}/api/user/${userId}`, {
 
   const handleImageError = (index) => {
     setImageErrors(prev => ({ ...prev, [index]: true }));
-  };
-
-  // Генерируем инициалы из email
-  const getInitialsFromEmail = (email) => {
-    if (!email) return 'П';
-    const parts = email.split('@')[0].split('.');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return email[0].toUpperCase();
-  };
-
-  // Генерируем имя из email
-  const getNameFromEmail = (email) => {
-    if (!email) return 'Пользователь';
-    const username = email.split('@')[0];
-    const parts = username.split('.');
-    if (parts.length >= 2) {
-      return `${parts[0]} ${parts[1][0]}.`;
-    }
-    return username;
   };
 
   // Открываем адрес в Google Maps
@@ -759,26 +741,26 @@ const response = await fetch(`${API_BASE}/api/user/${userId}`, {
         </div>
 
         {/* Параметры недвижимости */}
-              {propertyGroups.length > 0 && (
-        <div style={sectionStyle}>
-          <h3 style={sectionTitleStyle}>Характеристики</h3>
-          <div style={propertyDetailsContainerStyle}>
-            {propertyGroups.map((group, groupIndex) => (
-              <div key={groupIndex} style={propertyGroupStyle}>
-                <h4 style={propertyGroupTitleStyle}>{group.title}</h4>
-                <div style={propertyGridStyle}>
-                  {group.items.map((item, itemIndex) => (
-                    <div key={itemIndex} style={propertyItemStyle}>
-                      <span style={propertyLabelStyle}>{item.label}:</span>
-                      <span style={propertyValueStyle}>{item.value}</span>
-                    </div>
-                  ))}
+        {propertyGroups.length > 0 && (
+          <div style={sectionStyle}>
+            <h3 style={sectionTitleStyle}>Характеристики</h3>
+            <div style={propertyDetailsContainerStyle}>
+              {propertyGroups.map((group, groupIndex) => (
+                <div key={groupIndex} style={propertyGroupStyle}>
+                  <h4 style={propertyGroupTitleStyle}>{group.title}</h4>
+                  <div style={propertyGridStyle}>
+                    {group.items.map((item, itemIndex) => (
+                      <div key={itemIndex} style={propertyItemStyle}>
+                        <span style={propertyLabelStyle}>{item.label}:</span>
+                        <span style={propertyValueStyle}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
         {/* Местоположение */}
         <div style={sectionStyle}>
@@ -824,20 +806,52 @@ const response = await fetch(`${API_BASE}/api/user/${userId}`, {
         <div style={sectionStyle}>
           <h3 style={sectionTitleStyle}>Продавец</h3>
           <div style={sellerCardStyle}>
-            <div style={sellerAvatarStyle}>
-              {seller ? getInitialsFromEmail(seller.email) : 'П'}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={sellerNameStyle}>
-                {seller ? getNameFromEmail(seller.email) : 'Пользователь'}
+            {/* Аватар */}
+            {ad.user_photo_url ? (
+              <img 
+                src={ad.user_photo_url} 
+                alt="Аватар"
+                style={sellerAvatarImageStyle}
+              />
+            ) : (
+              <div style={sellerAvatarStyle}>
+                {getInitialsFromTelegram(ad)}
               </div>
+            )}
+            
+            <div style={{ flex: 1 }}>
+              {/* Имя продавца */}
+              <div style={sellerNameStyle}>
+                {getNameFromTelegram(ad)}
+              </div>
+              
+              {/* Username если есть */}
+              {ad.user_username && (
+                <div style={sellerUsernameStyle}>
+                  @{ad.user_username}
+                </div>
+              )}
+              
+              {/* Рейтинг и дата регистрации */}
               <div style={sellerRatingStyle}>
                 <span className="material-symbols-outlined" style={{ color: '#f59e0b', fontSize: 14 }}>star</span>
-                <span style={{ fontWeight: 'bold' }}>4.8</span>
-                <span> • На Spacego с {ad?.created_at ? new Date(ad.created_at).getFullYear() : '2024'} года</span>
+                <span style={{ fontWeight: 'bold', marginRight: 4 }}>4.8</span>
+                <span style={{ color: '#6b7280' }}>
+                  • На Spacego с {ad?.created_at ? new Date(ad.created_at).toLocaleDateString('ru-RU') : 'недавно'}
+                </span>
               </div>
             </div>
-            <span className="material-symbols-outlined" style={{ color: '#6b7280' }}>chevron_right</span>
+            
+            {/* Кнопка перехода к профилю */}
+            <button 
+              style={profileButtonStyle}
+              onClick={() => {
+                // Можно сделать переход к профилю продавца
+                console.log('Переход к профилю пользователя:', ad.user_id);
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ color: '#46A8C1', fontSize: 20 }}>person</span>
+            </button>
           </div>
         </div>
       </div>
@@ -857,7 +871,7 @@ const response = await fetch(`${API_BASE}/api/user/${userId}`, {
   );
 }
 
-// Стили (добавляем новые для параметров)
+// Стили
 const detailPageStyle = {
   backgroundColor: '#f6f6f8',
   minHeight: '100vh',
@@ -1067,7 +1081,6 @@ const propertyDetailsContainerStyle = {
   border: '1px solid #eee'
 };
 
-
 const propertyGroupStyle = {
   borderBottom: '1px solid #eee',
   padding: '16px'
@@ -1263,6 +1276,33 @@ const footerButtonSecondaryStyle = {
   cursor: 'pointer',
   backgroundColor: 'rgba(70, 168, 193, 0.2)',
   color: '#46A8C1'
+};
+
+const sellerAvatarImageStyle = {
+  width: 48,
+  height: 48,
+  borderRadius: 24,
+  objectFit: 'cover',
+  marginRight: '12px'
+};
+
+const sellerUsernameStyle = {
+  fontSize: '14px',
+  color: '#46A8C1',
+  marginTop: '2px'
+};
+
+const profileButtonStyle = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  transition: 'background-color 0.2s ease'
 };
 
 export default AdDetail;
