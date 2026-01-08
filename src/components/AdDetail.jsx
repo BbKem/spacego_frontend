@@ -858,13 +858,37 @@ function AdDetail({ ad, onBack }) {
 
       {/* Footer */}
       <div style={detailFooterStyle}>
-        <button style={footerButtonSecondaryStyle}>
+        <button 
+          style={footerButtonSecondaryStyle}
+          onClick={() => {
+            if (ad.user_username) {
+              // Открываем Telegram чат с пользователем
+              window.open(`https://t.me/${ad.user_username}`, '_blank');
+            } else {
+              alert('У пользователя нет username в Telegram');
+            }
+          }}
+        >
           <span className="material-symbols-outlined">chat_bubble</span>
-          <span>Написать</span>
+          <span>Написать в TG</span>
         </button>
-        <button style={footerButtonPrimaryStyle}>
+        
+        <button 
+          style={footerButtonPrimaryStyle}
+          onClick={() => {
+            // Здесь можно сделать кнопку "Позвонить" или другую функцию
+            if (ad.user_username) {
+              // Альтернатива: открыть диалог в Telegram WebApp
+              if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.openTelegramLink(`https://t.me/${ad.user_username}`);
+              } else {
+                window.open(`https://t.me/${ad.user_username}`, '_blank');
+              }
+            }
+          }}
+        >
           <span className="material-symbols-outlined">call</span>
-          <span>Позвонить</span>
+          <span>Связаться</span>
         </button>
       </div>
     </div>
