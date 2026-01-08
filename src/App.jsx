@@ -4,7 +4,6 @@ import TelegramInit from './components/TelegramInit'
 import Home from './components/Home'
 import AdDetail from './components/AdDetail'
 import CreateAd from './components/CreateAd'
-import logo from './assets/logo.png'
 
 const AppCacheContext = createContext()
 
@@ -162,18 +161,14 @@ function AppContent() {
   const [user, setUser] = useState(null);
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedAd, setSelectedAd] = useState(null);
-  const [isTelegramApp, setIsTelegramApp] = useState(false);
 
   useEffect(() => {
-    // Проверяем, запущено ли приложение в Telegram
-    const isInTelegram = window.Telegram && window.Telegram.WebApp;
-    setIsTelegramApp(!!isInTelegram);
-    
     // Пробуем получить сохранённого пользователя
     const savedUser = localStorage.getItem('telegram_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
+    // Больше не проверяем isTelegramApp - TelegramInit сам разберётся
   }, []);
 
   const handleTelegramAuthSuccess = (userData) => {
@@ -184,12 +179,12 @@ function AppContent() {
   const handleLogout = () => {
     localStorage.removeItem('telegram_user');
     localStorage.removeItem('telegram_init_data');
-    localStorage.removeItem('token'); // На всякий случай удаляем старый токен
+    localStorage.removeItem('token');
     setUser(null);
     setCurrentPage('home');
     setSelectedAd(null);
     
-    // Если в Telegram WebApp - закрываем или показываем сообщение
+    // Если в Telegram WebApp - закрываем
     if (window.Telegram && window.Telegram.WebApp) {
       window.Telegram.WebApp.close();
     }
@@ -205,117 +200,67 @@ function AppContent() {
     setCurrentPage('home');
   };
 
-  // Если не в Telegram и нет пользователя - показываем информационную страницу
-  if (!isTelegramApp && !user) {
+  // Если нет пользователя - показываем TelegramInit
+  if (!user) {
     return (
-      <div style={infoPageStyle}>
-        <div style={logoStyle}>
-          <img src={logo} alt="Spacego" style={logoImageStyle} />
+      <TelegramInit onAuthSuccess={handleTelegramAuthSuccess}>
+        <div style={loadingStyle}>
+          <div style={spinnerStyle}></div>
+          <p>Инициализация...</p>
         </div>
-        <h1 style={infoTitleStyle}>SpaceGo</h1>
-        <p style={infoTextStyle}>
-          Это приложение работает только внутри Telegram.
-          Откройте его через Telegram бота для использования.
-        </p>
-        <div style={qrCodeStyle}>
-          <div style={qrPlaceholderStyle}>
-            <span className="material-symbols-outlined" style={{ fontSize: 64, color: '#46A8C1' }}>
-              qr_code
-            </span>
-            <p style={{ marginTop: 16 }}>Отсканируйте QR-код бота</p>
-          </div>
-        </div>
-      </div>
+      </TelegramInit>
     );
   }
 
-  // Обёртка для Telegram инициализации
-  const AppWrapper = ({ children }) => {
-    if (isTelegramApp && !user) {
-      return (
-        <TelegramInit onAuthSuccess={handleTelegramAuthSuccess}>
-          {children}
-        </TelegramInit>
-      );
-    }
-    return children;
-  };
-
+  // Если есть пользователь - показываем приложение
   return (
-    <AppWrapper>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f6f6f8', fontFamily: "'Space Grotesk', sans-serif" }}>
-        {currentPage === 'home' && (
-          <Home 
-            user={user} 
-            onLogout={handleLogout} 
-            onViewAd={viewAd}
-            onCreateAd={() => setCurrentPage('create-ad')}
-          />
-        )}
-        {currentPage === 'ad-detail' && <AdDetail ad={selectedAd} onBack={() => setCurrentPage('home')} />}
-        {currentPage === 'create-ad' && (
-          <CreateAd 
-            onBack={() => setCurrentPage('home')} 
-            onAdCreated={handleAdCreated}
-          />
-        )}
-      </div>
-    </AppWrapper>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f6f6f8', fontFamily: "'Space Grotesk', sans-serif" }}>
+      {currentPage === 'home' && (
+        <Home 
+          user={user} 
+          onLogout={handleLogout} 
+          onViewAd={viewAd}
+          onCreateAd={() => setCurrentPage('create-ad')}
+        />
+      )}
+      {currentPage === 'ad-detail' && <AdDetail ad={selectedAd} onBack={() => setCurrentPage('home')} />}
+      {currentPage === 'create-ad' && (
+        <CreateAd 
+          onBack={() => setCurrentPage('home')} 
+          onAdCreated={handleAdCreated}
+        />
+      )}
+    </div>
   );
 }
 
-// Стили для информационной страницы
-const infoPageStyle = {
+const loadingStyle = {
   display: 'flex',
   flexDirection: 'column',
-  alignItems: 'center',
   justifyContent: 'center',
-  height: '100vh',
-  padding: '20px',
-  backgroundColor: '#f6f6f8',
-  textAlign: 'center'
-};
-
-const logoStyle = {
-  width: 120,
-  height: 120,
-  marginBottom: 24
-};
-
-const logoImageStyle = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'contain'
-};
-
-const infoTitleStyle = {
-  fontSize: 28,
-  fontWeight: 'bold',
-  color: '#0d121b',
-  marginBottom: 16
-};
-
-const infoTextStyle = {
-  fontSize: 16,
-  color: '#4b5563',
-  maxWidth: 400,
-  marginBottom: 32,
-  lineHeight: 1.5
-};
-
-const qrCodeStyle = {
-  marginTop: 32
-};
-
-const qrPlaceholderStyle = {
-  display: 'flex',
-  flexDirection: 'column',
   alignItems: 'center',
-  padding: 24,
-  backgroundColor: 'white',
-  borderRadius: 12,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+  height: '100vh',
+  backgroundColor: '#f6f6f8'
 };
+
+const spinnerStyle = {
+  width: '40px',
+  height: '40px',
+  border: '4px solid #f3f3f3',
+  borderTop: '4px solid #46A8C1',
+  borderRadius: '50%',
+  animation: 'spin 1s linear infinite'
+};
+
+// Добавляем стили для анимации
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(styleSheet);
 
 function App() {
   return (
