@@ -6,18 +6,27 @@ function TelegramInit({ children, onAuthSuccess }) {
   const [error, setError] = useState(null);
 
   // Функция для извлечения tgWebAppData из URL hash
-  const extractTelegramDataFromHash = () => {
-    const hash = window.location.hash.substring(1); // Убираем #
-    const params = new URLSearchParams(hash);
-    
-    const tgWebAppData = params.get('tgWebAppData');
-    const platform = params.get('tgWebAppPlatform');
-    const version = params.get('tgWebAppVersion');
-    
-    console.log('Extracted from hash:', { tgWebAppData, platform, version });
-    
-    return { tgWebAppData, platform, version };
+ // Добавьте в extractTelegramDataFromHash
+const extractTelegramDataFromHash = () => {
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  
+  let tgWebAppData = params.get('tgWebAppData');
+  
+  // Если данные в hash, но параметр называется по-другому
+  if (!tgWebAppData) {
+    // Пробуем другие возможные имена параметров
+    tgWebAppData = params.get('initData') || 
+                   params.get('telegram-data') || 
+                   params.get('tg-data');
+  }
+  
+  return { 
+    tgWebAppData, 
+    platform: params.get('tgWebAppPlatform'),
+    version: params.get('tgWebAppVersion')
   };
+};
 
   useEffect(() => {
     const initTelegram = async () => {
