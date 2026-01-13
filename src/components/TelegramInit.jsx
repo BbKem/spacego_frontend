@@ -9,18 +9,18 @@ function TelegramInit({ children, onAuthSuccess }) {
  // Добавьте в extractTelegramDataFromHash
 const extractTelegramDataFromHash = () => {
   const hash = window.location.hash.substring(1);
+  
+  // Логируем raw hash
+  console.log('Raw hash:', hash);
+  
   const params = new URLSearchParams(hash);
   
+  // Получаем tgWebAppData - это уже закодированная строка
   let tgWebAppData = params.get('tgWebAppData');
   
-  // Если данные в hash, но параметр называется по-другому
-  if (!tgWebAppData) {
-    // Пробуем другие возможные имена параметров
-    tgWebAppData = params.get('initData') || 
-                   params.get('telegram-data') || 
-                   params.get('tg-data');
-  }
+  console.log('Extracted tgWebAppData:', tgWebAppData?.substring(0, 100));
   
+  // НЕ декодируем здесь! Отправляем как есть
   return { 
     tgWebAppData, 
     platform: params.get('tgWebAppPlatform'),
