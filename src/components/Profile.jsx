@@ -1,0 +1,495 @@
+// frontend/src/components/Profile.jsx
+import { useState, useEffect } from 'react';
+import AdCard from './AdCard';
+import SkeletonCard from './SkeletonCard';
+
+function Profile({ user, onBack, onViewAd, onLogout }) {
+  const [activeTab, setActiveTab] = useState('active');
+  const [userAds, setUserAds] = useState({ active: [], archived: [] });
+  const [favorites, setFavorites] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [isLoading, setIsLoading] = useState({ active: false, archived: false, favorites: false });
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+
+  const API_BASE = import.meta.env.DEV 
+    ? 'http://localhost:4000' 
+    : 'https://spacego-backend.onrender.com';
+
+  useEffect(() => {
+    fetchStats();
+    fetchActiveAds();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'active' && userAds.active.length === 0) {
+      fetchActiveAds();
+    } else if (activeTab === 'archived' && userAds.archived.length === 0) {
+      fetchArchivedAds();
+    } else if (activeTab === 'favorites' && favorites.length === 0) {
+      fetchFavorites();
+    }
+  }, [activeTab]);
+
+  const fetchStats = async () => {
+    setIsStatsLoading(true);
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      const response = await fetch(`${API_BASE}/api/user/stats`, {
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки статистики:', error);
+    } finally {
+      setIsStatsLoading(false);
+    }
+  };
+
+  const fetchActiveAds = async () => {
+    setIsLoading(prev => ({ ...prev, active: true }));
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      const response = await fetch(`${API_BASE}/api/user/ads?status=active`, {
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserAds(prev => ({ ...prev, active: data }));
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки активных объявлений:', error);
+    } finally {
+      setIsLoading(prev => ({ ...prev, active: false }));
+    }
+  };
+
+  const fetchArchivedAds = async () => {
+    setIsLoading(prev => ({ ...prev, archived: true }));
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      const response = await fetch(`${API_BASE}/api/user/ads?status=archived`, {
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserAds(prev => ({ ...prev, archived: data }));
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки архивных объявлений:', error);
+    } finally {
+      setIsLoading(prev => ({ ...prev, archived: false }));
+    }
+  };
+
+  const fetchFavorites = async () => {
+    setIsLoading(prev => ({ ...prev, favorites: true }));
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      const response = await fetch(`${API_BASE}/api/favorites`, {
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFavorites(data);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки избранного:', error);
+    } finally {
+      setIsLoading(prev => ({ ...prev, favorites: false }));
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  const getInitials = () => {
+    if (user.first_name) {
+      return user.first_name[0].toUpperCase();
+    }
+    if (user.username) {
+      return user.username[0].toUpperCase();
+    }
+    return 'П';
+  };
+
+  const getName = () => {
+    if (user.first_name && user.last_name) {
+      return `${user.first_name} ${user.last_name}`;
+    }
+    if (user.first_name) {
+      return user.first_name;
+    }
+    if (user.username) {
+      return `@${user.username}`;
+    }
+    return 'Пользователь';
+  };
+
+  const getCurrentAds = () => {
+    switch (activeTab) {
+      case 'active': return userAds.active;
+      case 'archived': return userAds.archived;
+      case 'favorites': return favorites;
+      default: return [];
+    }
+  };
+
+  const getCurrentLoading = () => {
+    switch (activeTab) {
+      case 'active': return isLoading.active;
+      case 'archived': return isLoading.archived;
+      case 'favorites': return isLoading.favorites;
+      default: return false;
+    }
+  };
+
+  return (
+    <div style={pageStyle}>
+      {/* Header */}
+      <div style={headerStyle}>
+        <button onClick={onBack} style={backButtonStyle}>
+          <span className="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h2 style={titleStyle}>Профиль</h2>
+        <div style={{ width: 40 }}></div>
+      </div>
+
+      {/* Profile Header */}
+      <div style={profileHeaderStyle}>
+        <div style={avatarSectionStyle}>
+          {user.photo_url ? (
+            <img src={user.photo_url} alt="Аватар" style={avatarImageStyle} />
+          ) : (
+            <div style={avatarPlaceholderStyle}>
+              {getInitials()}
+            </div>
+          )}
+        </div>
+        
+        <div style={profileInfoStyle}>
+          <h3 style={userNameStyle}>{getName()}</h3>
+          {user.username && (
+            <p style={usernameStyle}>@{user.username}</p>
+          )}
+          <p style={registrationDateStyle}>
+            На Spacego с {formatDate(user.created_at)}
+          </p>
+        </div>
+      </div>
+
+      {/* Stats */}
+      {!isStatsLoading && stats && (
+        <div style={statsContainerStyle}>
+          <div style={statItemStyle}>
+            <div style={statNumberStyle}>{stats.active}</div>
+            <div style={statLabelStyle}>Активные</div>
+          </div>
+          <div style={statItemStyle}>
+            <div style={statNumberStyle}>{stats.archived}</div>
+            <div style={statLabelStyle}>Архив</div>
+          </div>
+          <div style={statItemStyle}>
+            <div style={statNumberStyle}>{stats.favorites}</div>
+            <div style={statLabelStyle}>Избранное</div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div style={tabsContainerStyle}>
+        <button
+          style={activeTab === 'active' ? tabActiveStyle : tabStyle}
+          onClick={() => setActiveTab('active')}
+        >
+          Активные
+        </button>
+        <button
+          style={activeTab === 'archived' ? tabActiveStyle : tabStyle}
+          onClick={() => setActiveTab('archived')}
+        >
+          Архив
+        </button>
+        <button
+          style={activeTab === 'favorites' ? tabActiveStyle : tabStyle}
+          onClick={() => setActiveTab('favorites')}
+        >
+          Избранное
+        </button>
+      </div>
+
+      {/* Ads Grid */}
+      <div style={contentStyle}>
+        {getCurrentLoading() ? (
+          <div style={gridStyle}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <SkeletonCard key={index} />
+            ))}
+          </div>
+        ) : getCurrentAds().length > 0 ? (
+          <div style={gridStyle}>
+            {getCurrentAds().map(ad => (
+              <AdCard key={ad.id} ad={ad} onClick={() => onViewAd(ad)} />
+            ))}
+          </div>
+        ) : (
+          <div style={emptyStateStyle}>
+            <span className="material-symbols-outlined" style={emptyIconStyle}>
+              {activeTab === 'active' ? 'sell' : 
+               activeTab === 'archived' ? 'archive' : 
+               'favorite'}
+            </span>
+            <h3 style={emptyTitleStyle}>
+              {activeTab === 'active' ? 'Нет активных объявлений' : 
+               activeTab === 'archived' ? 'Архив пуст' : 
+               'Нет избранных объявлений'}
+            </h3>
+            <p style={emptyTextStyle}>
+              {activeTab === 'active' ? 'Создайте первое объявление!' : 
+               activeTab === 'archived' ? 'Здесь будут ваши архивные объявления' : 
+               'Добавляйте объявления в избранное'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Logout Button */}
+      <div style={logoutContainerStyle}>
+        <button onClick={onLogout} style={logoutButtonStyle}>
+          <span className="material-symbols-outlined" style={{ marginRight: '8px' }}>
+            logout
+          </span>
+          Выйти из аккаунта
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Стили
+const pageStyle = {
+  backgroundColor: '#f6f6f8',
+  minHeight: '100vh',
+  display: 'flex',
+  flexDirection: 'column'
+};
+
+const headerStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '16px',
+  backgroundColor: 'white',
+  borderBottom: '1px solid #eee'
+};
+
+const backButtonStyle = {
+  width: 40,
+  height: 40,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: '#46A8C1'
+};
+
+const titleStyle = {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#0d121b',
+  margin: 0
+};
+
+const profileHeaderStyle = {
+  backgroundColor: 'white',
+  padding: '24px 16px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '16px',
+  borderBottom: '1px solid #eee'
+};
+
+const avatarSectionStyle = {
+  flexShrink: 0
+};
+
+const avatarImageStyle = {
+  width: 80,
+  height: 80,
+  borderRadius: 40,
+  objectFit: 'cover'
+};
+
+const avatarPlaceholderStyle = {
+  width: 80,
+  height: 80,
+  borderRadius: 40,
+  backgroundColor: '#46A8C1',
+  color: 'white',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  fontSize: 32,
+  fontWeight: 'bold'
+};
+
+const profileInfoStyle = {
+  flex: 1
+};
+
+const userNameStyle = {
+  fontSize: 20,
+  fontWeight: 'bold',
+  color: '#0d121b',
+  margin: '0 0 4px 0'
+};
+
+const usernameStyle = {
+  fontSize: 14,
+  color: '#46A8C1',
+  margin: '0 0 8px 0'
+};
+
+const registrationDateStyle = {
+  fontSize: 14,
+  color: '#6b7280',
+  margin: 0
+};
+
+const statsContainerStyle = {
+  display: 'flex',
+  justifyContent: 'space-around',
+  backgroundColor: 'white',
+  padding: '16px 0',
+  marginBottom: '12px',
+  borderBottom: '1px solid #eee'
+};
+
+const statItemStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '4px'
+};
+
+const statNumberStyle = {
+  fontSize: 20,
+  fontWeight: 'bold',
+  color: '#46A8C1'
+};
+
+const statLabelStyle = {
+  fontSize: 12,
+  color: '#6b7280'
+};
+
+const tabsContainerStyle = {
+  display: 'flex',
+  backgroundColor: 'white',
+  padding: '0 16px',
+  borderBottom: '1px solid #eee'
+};
+
+const tabStyle = {
+  flex: 1,
+  padding: '16px 0',
+  background: 'none',
+  border: 'none',
+  borderBottom: '3px solid transparent',
+  color: '#6b7280',
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease'
+};
+
+const tabActiveStyle = {
+  ...tabStyle,
+  color: '#46A8C1',
+  borderBottom: '3px solid #46A8C1'
+};
+
+const contentStyle = {
+  flex: 1,
+  padding: '16px',
+  paddingBottom: '80px'
+};
+
+const gridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))',
+  gap: '12px'
+};
+
+const emptyStateStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '60px 20px',
+  textAlign: 'center'
+};
+
+const emptyIconStyle = {
+  fontSize: 64,
+  color: '#e5e7eb',
+  marginBottom: '16px'
+};
+
+const emptyTitleStyle = {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#0d121b',
+  marginBottom: '8px'
+};
+
+const emptyTextStyle = {
+  fontSize: 14,
+  color: '#6b7280',
+  maxWidth: '300px'
+};
+
+const logoutContainerStyle = {
+  padding: '16px',
+  borderTop: '1px solid #eee',
+  backgroundColor: 'white'
+};
+
+const logoutButtonStyle = {
+  width: '100%',
+  padding: '12px',
+  backgroundColor: '#fee2e2',
+  color: '#dc2626',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: 16,
+  fontWeight: '500',
+  cursor: 'pointer',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center'
+};
+
+export default Profile;
