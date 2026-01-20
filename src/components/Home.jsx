@@ -117,7 +117,7 @@ const getCategoryType = (categoryName) => {
 };
 // --- КОНЕЦ ОПРЕДЕЛЕНИЯ ---
 
-function Home({ user, onLogout, onViewAd, onCreateAd }) {
+function Home({ user, onLogout, onViewAd, onCreateAd,setCurrentPage  }) {
   const { ads: cachedAds, categories, subcategories, getSubcategories, isLoading, refreshData, lastUpdated } = useAppCache()
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [filteredAds, setFilteredAds] = useState([])
@@ -631,27 +631,29 @@ return (
 
         {/* BottomNav */}
         <div style={bottomNavStyle}>
-          <div style={navItemActiveStyle}>
-            <span className="material-symbols-outlined">home</span>
-            <span style={navLabelStyle}>Home</span>
-          </div>
-          <div style={navItemStyle}>
-            <span className="material-symbols-outlined">favorite</span>
-            <span style={navLabelStyle}>Favorites</span>
-          </div>
-          <div style={navItemStyle} onClick={onCreateAd}>
-            <span className="material-symbols-outlined">add</span>
-            <span style={navLabelStyle}>Sell</span>
-          </div>
-          <div style={navItemStyle}>
-            <span className="material-symbols-outlined">chat_bubble</span>
-            <span style={navLabelStyle}>Messages</span>
-          </div>
-          <div style={navItemStyle}>
-            <span className="material-symbols-outlined">person</span>
-            <span style={navLabelStyle}>Profile</span>
-          </div>
-        </div>
+  <div style={currentPage === 'home' ? navItemActiveStyle : navItemStyle}>
+    <span className="material-symbols-outlined">home</span>
+    <span style={navLabelStyle}>Home</span>
+  </div>
+  <div 
+    style={navItemStyle} 
+    onClick={() => setCurrentPage && setCurrentPage('favorites')}
+  >
+    <span className="material-symbols-outlined">favorite</span>
+    <span style={navLabelStyle}>Favorites</span>
+  </div>
+  <div style={navItemStyle} onClick={onCreateAd}>
+    <span className="material-symbols-outlined">add</span>
+    <span style={navLabelStyle}>Sell</span>
+  </div>
+  <div 
+    style={navItemStyle} 
+    onClick={() => setCurrentPage && setCurrentPage('profile')}
+  >
+    <span className="material-symbols-outlined">person</span>
+    <span style={navLabelStyle}>Profile</span>
+  </div>
+</div>
 
         {/* Filters Panel */}
         {showFilters && (
@@ -949,7 +951,8 @@ const navItemStyle = {
   color: '#6b7280',
   fontSize: 10,
   cursor: 'pointer',
-  transition: 'color 0.2s ease'
+  transition: 'color 0.2s ease',
+  flex: 1 
 }
 
 const navItemActiveStyle = {

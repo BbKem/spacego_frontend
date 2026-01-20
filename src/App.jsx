@@ -4,6 +4,8 @@ import TelegramInit from './components/TelegramInit'
 import Home from './components/Home'
 import AdDetail from './components/AdDetail'
 import CreateAd from './components/CreateAd'
+import Favorites from './components/Favorites'
+import Profile from './components/Profile'
 
 const AppCacheContext = createContext()
 
@@ -221,6 +223,7 @@ function AppContent() {
           onLogout={handleLogout} 
           onViewAd={viewAd}
           onCreateAd={() => setCurrentPage('create-ad')}
+          setCurrentPage={setCurrentPage}
         />
       )}
       {currentPage === 'ad-detail' && <AdDetail ad={selectedAd} onBack={() => setCurrentPage('home')} />}
@@ -228,6 +231,20 @@ function AppContent() {
         <CreateAd 
           onBack={() => setCurrentPage('home')} 
           onAdCreated={handleAdCreated}
+        />
+      )}
+      {currentPage === 'favorites' && (
+        <Favorites 
+          onViewAd={viewAd} 
+          onBack={() => setCurrentPage('home')}
+        />
+      )}
+      {currentPage === 'profile' && (
+        <Profile 
+          user={user}
+          onBack={() => setCurrentPage('home')}
+          onViewAd={viewAd}
+          onLogout={handleLogout}
         />
       )}
     </div>

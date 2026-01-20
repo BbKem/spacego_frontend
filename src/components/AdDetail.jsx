@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 function AdDetail({ ad, onBack }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState({});
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+
+  const API_BASE = import.meta.env.DEV 
+    ? 'http://localhost:4000' 
+    : 'https://spacego-backend.onrender.com';
 
   // Получаем массив фотографий
   const getPhotos = () => {
@@ -14,6 +20,64 @@ function AdDetail({ ad, onBack }) {
       return [ad.photo_url];
     }
     return [];
+  };
+
+  // Проверяем при загрузке, добавлено ли в избранное
+  useEffect(() => {
+    if (ad?.id) {
+      checkIfFavorite();
+    }
+  }, [ad?.id]);
+
+  // Функция проверки избранного
+  const checkIfFavorite = async () => {
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      if (!initData) return;
+
+      const response = await fetch(`${API_BASE}/api/favorites/${ad.id}/check`, {
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsFavorite(data.isFavorite);
+      }
+    } catch (error) {
+      console.error('Ошибка проверки избранного:', error);
+    }
+  };
+
+  // Функция переключения избранного
+  const handleFavoriteClick = async () => {
+    if (isTogglingFavorite) return;
+
+    setIsTogglingFavorite(true);
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      if (!initData) {
+        console.log('Требуется авторизация для добавления в избранное');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/api/favorites/${ad.id}`, {
+        method: 'POST',
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsFavorite(data.action === 'added');
+      }
+    } catch (error) {
+      console.error('Ошибка избранного:', error);
+    } finally {
+      setIsTogglingFavorite(false);
+    }
   };
 
   // Форматируем дату публикации
@@ -642,37 +706,37 @@ function AdDetail({ ad, onBack }) {
   };
 
   // Функция для открытия Telegram с предзаполненным сообщением
-const openTelegramChat = (username, adTitle = '') => {
-  if (!username) {
-    alert('У пользователя нет username в Telegram');
-    return;
-  }
-  
-  // Создаём текст сообщения
-  let message = 'Здравствуйте! Пишу по поводу объявления на SpaceGo.';
-  
-  if (adTitle) {
-    message += `\n\nОбъявление: "${adTitle}"`;
-  }
-  
-  message += '\n\nМожем обсудить детали?';
-  
-  // Кодируем сообщение для URL
-  const encodedMessage = encodeURIComponent(message);
-  
-  // Ссылка с предзаполненным сообщением
-  const telegramUrl = `https://t.me/${username}?text=${encodedMessage}`;
-  
-  console.log('Opening Telegram URL:', telegramUrl);
-  
-  // Пытаемся открыть через Telegram WebApp если внутри Telegram
-  if (window.Telegram && window.Telegram.WebApp) {
-    window.Telegram.WebApp.openTelegramLink(telegramUrl);
-  } else {
-    // Иначе обычная ссылка
-    window.open(telegramUrl, '_blank');
-  }
-};
+  const openTelegramChat = (username, adTitle = '') => {
+    if (!username) {
+      alert('У пользователя нет username в Telegram');
+      return;
+    }
+    
+    // Создаём текст сообщения
+    let message = 'Здравствуйте! Пишу по поводу объявления на SpaceGo.';
+    
+    if (adTitle) {
+      message += `\n\nОбъявление: "${adTitle}"`;
+    }
+    
+    message += '\n\nМожем обсудить детали?';
+    
+    // Кодируем сообщение для URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Ссылка с предзаполненным сообщением
+    const telegramUrl = `https://t.me/${username}?text=${encodedMessage}`;
+    
+    console.log('Opening Telegram URL:', telegramUrl);
+    
+    // Пытаемся открыть через Telegram WebApp если внутри Telegram
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.openTelegramLink(telegramUrl);
+    } else {
+      // Иначе обычная ссылка
+      window.open(telegramUrl, '_blank');
+    }
+  };
 
   return (
     <div style={detailPageStyle}>
@@ -725,8 +789,22 @@ const openTelegramChat = (username, adTitle = '') => {
           </div>
         )}
         
-        <button style={detailHeartButtonStyle}>
-          <span className="material-symbols-outlined">favorite_border</span>
+        <button 
+          style={detailHeartButtonStyle}
+          onClick={handleFavoriteClick}
+          disabled={isTogglingFavorite}
+          title={isFavorite ? "Удалить из избранного" : "Добавить в избранное"}
+        >
+          <span 
+            className="material-symbols-outlined"
+            style={{
+              color: isFavorite ? '#e11d48' : '#666',
+              animation: isTogglingFavorite ? 'spin 0.5s linear infinite' : 'none',
+              opacity: isTogglingFavorite ? 0.7 : 1
+            }}
+          >
+            {isFavorite ? 'favorite' : 'favorite_border'}
+          </span>
         </button>
         
         {/* Счетчик фото */}
@@ -1025,7 +1103,9 @@ const detailHeartButtonStyle = {
   justifyContent: 'center',
   alignItems: 'center',
   border: 'none',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  zIndex: 10,
+  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
 };
 
 const imageCounterStyle = {
@@ -1361,5 +1441,18 @@ const profileButtonStyle = {
   borderRadius: 20,
   transition: 'background-color 0.2s ease'
 };
+
+// Анимация для спиннера
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+if (!document.head.querySelector('style[data-ad-detail-spinner]')) {
+  styleSheet.setAttribute('data-ad-detail-spinner', 'true');
+  document.head.appendChild(styleSheet);
+}
 
 export default AdDetail;

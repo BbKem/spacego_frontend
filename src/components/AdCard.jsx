@@ -1,7 +1,74 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 function AdCard({ ad, onClick }) {
   const [imageError, setImageError] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
+
+  const API_BASE = import.meta.env.DEV 
+    ? 'http://localhost:4000' 
+    : 'https://spacego-backend.onrender.com';
+
+  // Проверяем при загрузке, добавлено ли в избранное
+  useEffect(() => {
+    checkIfFavorite();
+  }, [ad.id]);
+
+  const checkIfFavorite = async () => {
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      if (!initData) return;
+
+      const response = await fetch(`${API_BASE}/api/favorites/${ad.id}/check`, {
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsFavorite(data.isFavorite);
+      }
+    } catch (error) {
+      console.error('Ошибка проверки избранного:', error);
+    }
+  };
+
+  const handleFavoriteClick = async (e) => {
+    e.stopPropagation(); // Не вызывать onClick родителя
+    e.preventDefault(); // Предотвращаем стандартное поведение
+    if (isToggling) return;
+
+    setIsToggling(true);
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      if (!initData) {
+        console.log('Нет данных авторизации для добавления в избранное');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/api/favorites/${ad.id}`, {
+        method: 'POST',
+        headers: {
+          'telegram-init-data': initData,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsFavorite(data.action === 'added');
+        // Можно добавить уведомление или звук
+      } else {
+        const errorText = await response.text();
+        console.error('Ошибка при добавлении в избранное:', errorText);
+      }
+    } catch (error) {
+      console.error('Ошибка избранного:', error);
+    } finally {
+      setIsToggling(false);
+    }
+  };
 
   const getFirstPhoto = () => {
     if (ad.photo_urls && ad.photo_urls.length > 0) {
@@ -90,8 +157,23 @@ function AdCard({ ad, onClick }) {
             <span className="material-symbols-outlined" style={{ color: '#9ca3af', fontSize: 32 }}>photo_camera</span>
           </div>
         )}
-        <button style={heartButtonStyle}>
-          <span className="material-symbols-outlined" style={{ color: '#e11d48', fontSize: 18 }}>favorite</span>
+        <button 
+          style={heartButtonStyle}
+          onClick={handleFavoriteClick}
+          disabled={isToggling}
+          title={isFavorite ? "Удалить из избранного" : "Добавить в избранное"}
+        >
+          <span 
+            className="material-symbols-outlined" 
+            style={{ 
+              color: isFavorite ? '#e11d48' : '#9ca3af',
+              fontSize: 18,
+              animation: isToggling ? 'spin 0.5s linear infinite' : 'none',
+              opacity: isToggling ? 0.7 : 1
+            }}
+          >
+            {isFavorite ? 'favorite' : 'favorite_border'}
+          </span>
         </button>
       </div>
       <div style={cardContentStyle}>
@@ -156,7 +238,9 @@ const heartButtonStyle = {
   alignItems: 'center',
   border: 'none',
   cursor: 'pointer',
-  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+  transition: 'all 0.2s ease',
+  zIndex: 2
 }
 
 const cardContentStyle = {
@@ -204,5 +288,15 @@ const cardLocationStyle = {
   lineHeight: 1.3,
   flex: 1
 }
+
+// Добавляем анимацию для спиннера
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default AdCard
