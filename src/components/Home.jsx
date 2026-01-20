@@ -118,7 +118,7 @@ const getCategoryType = (categoryName) => {
 };
 // --- КОНЕЦ ОПРЕДЕЛЕНИЯ ---
 
-function Home({ user, onLogout, onViewAd, onCreateAd,setCurrentPage  }) {
+function Home({ user, onLogout, onViewAd, onCreateAd,setCurrentPage,safeAreaTop  }) {
   const { ads: cachedAds, categories, subcategories, getSubcategories, isLoading, refreshData, lastUpdated } = useAppCache()
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [filteredAds, setFilteredAds] = useState([])
@@ -477,7 +477,7 @@ function Home({ user, onLogout, onViewAd, onCreateAd,setCurrentPage  }) {
 
 return (
     <div style={containerStyle}>
-      <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh', paddingBottom: '80px' }}>
+      <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh', paddingBottom: '80px',paddingTop: safeAreaTop}}>
         {/* TopAppBar */}
         <div style={topAppBarStyle}>
           <div style={{ width: 48 }}>

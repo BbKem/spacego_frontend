@@ -164,6 +164,7 @@ function AppContent() {
   const [user, setUser] = useState(null);
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedAd, setSelectedAd] = useState(null);
+  const [safeAreaTop, setSafeAreaTop] = useState(0);
 
   // ========== ДОБАВЛЕНО: ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP ==========
   useEffect(() => {
@@ -179,33 +180,47 @@ function AppContent() {
         tg.ready();
         
         // 2. Расширяем на весь экран - убирает верхнюю панель с серыми кнопками
+        // Но оставляем safe area для iOS
         tg.expand();
         
         // 3. Скрываем стандартную кнопку (MainButton)
         tg.MainButton.hide();
         
-        // 4. Настраиваем цвета под ваш дизайн
-        tg.setHeaderColor('#1A1D28');
-        tg.setBackgroundColor('#1A1D28');
+        // 4. Получаем безопасную зону для iOS (для Dynamic Island)
+        const platform = tg.platform || '';
+        const isIOS = platform.includes('ios') || /iPhone|iPad|iPod/.test(navigator.userAgent);
         
-        // 5. Отключаем некоторые стандартные жесты
+        if (isIOS) {
+          // Для iOS добавляем отступ для Dynamic Island
+          const safeArea = tg.viewportStableHeight || tg.viewportHeight;
+          const additionalPadding = 24; // Дополнительный отступ для Dynamic Island
+          setSafeAreaTop(additionalPadding);
+          console.log('iOS detected, adding safe area top:', additionalPadding);
+        }
+        
+        // 5. Настраиваем цвета под ваш дизайн
+        tg.setHeaderColor('#f6f6f8'); // Используем цвет фона вашего приложения
+        tg.setBackgroundColor('#f6f6f8');
+        
+        // 6. Отключаем некоторые стандартные жесты
         tg.disableVerticalSwipes();
         
-        // 6. Сохраняем initData для авторизации
+        // 7. Сохраняем initData для авторизации
         if (tg.initData) {
           localStorage.setItem('telegram_init_data', tg.initData);
           console.log('Telegram initData saved');
         }
         
-        // 7. Логируем параметры для отладки
+        // 8. Логируем параметры для отладки
         console.log('Telegram WebApp initialized successfully', {
           platform: tg.platform,
           version: tg.version,
           viewportHeight: tg.viewportHeight,
+          viewportStableHeight: tg.viewportStableHeight,
           isExpanded: tg.isExpanded
         });
         
-        // 8. Настройка Back Button (опционально)
+        // 9. Настройка Back Button (опционально)
         tg.BackButton.show();
         tg.onEvent('backButtonClicked', () => {
           console.log('Back button clicked in Telegram');
@@ -286,7 +301,10 @@ function AppContent() {
   if (!user) {
     return (
       <TelegramInit onAuthSuccess={handleTelegramAuthSuccess}>
-        <div style={loadingStyle}>
+        <div style={{
+          ...loadingStyle,
+          paddingTop: `${safeAreaTop}px`
+        }}>
           <div style={spinnerStyle}></div>
           <p>Инициализация...</p>
         </div>
@@ -297,14 +315,18 @@ function AppContent() {
   // Определяем, нужно ли показывать нижнюю навигацию
   const showBottomNav = currentPage !== 'ad-detail';
 
+  // Создаем стиль с безопасными отступами
+  const safeAreaStyle = {
+    minHeight: '100vh', 
+    backgroundColor: '#f6f6f8', 
+    fontFamily: "'Space Grotesk', sans-serif",
+    paddingBottom: showBottomNav ? '80px' : '0',
+    paddingTop: `${safeAreaTop}px`
+  };
+
   // Если есть пользователь - показываем приложение
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      backgroundColor: '#f6f6f8', 
-      fontFamily: "'Space Grotesk', sans-serif",
-      paddingBottom: showBottomNav ? '80px' : '0' // Добавляем отступ снизу для навигации
-    }}>
+    <div style={safeAreaStyle}>
       {currentPage === 'home' && (
         <Home 
           user={user} 
@@ -312,19 +334,28 @@ function AppContent() {
           onViewAd={viewAd}
           onCreateAd={() => setCurrentPage('create-ad')}
           setCurrentPage={setCurrentPage}
+          safeAreaTop={safeAreaTop}
         />
       )}
-      {currentPage === 'ad-detail' && <AdDetail ad={selectedAd} onBack={() => setCurrentPage('home')} />}
+      {currentPage === 'ad-detail' && (
+        <AdDetail 
+          ad={selectedAd} 
+          onBack={() => setCurrentPage('home')} 
+          safeAreaTop={safeAreaTop}
+        />
+      )}
       {currentPage === 'create-ad' && (
         <CreateAd 
           onBack={() => setCurrentPage('home')} 
           onAdCreated={handleAdCreated}
+          safeAreaTop={safeAreaTop}
         />
       )}
       {currentPage === 'favorites' && (
         <Favorites 
           onViewAd={viewAd} 
           onBack={() => setCurrentPage('home')}
+          safeAreaTop={safeAreaTop}
         />
       )}
       {currentPage === 'profile' && (
@@ -333,12 +364,17 @@ function AppContent() {
           onBack={() => setCurrentPage('home')}
           onViewAd={viewAd}
           onLogout={handleLogout}
+          safeAreaTop={safeAreaTop}
         />
       )}
       
       {/* Общая нижняя навигация для всех страниц кроме деталей объявления */}
       {showBottomNav && (
-        <BottomNav currentPage={currentPage} setCurrentPage={setCurrentPage} />
+        <BottomNav 
+          currentPage={currentPage} 
+          setCurrentPage={setCurrentPage} 
+          safeAreaTop={safeAreaTop}
+        />
       )}
     </div>
   );
