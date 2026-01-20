@@ -102,7 +102,10 @@ const headerStyle = {
   alignItems: 'center',
   padding: '16px',
   backgroundColor: 'white',
-  borderBottom: '1px solid #eee'
+  borderBottom: '1px solid #eee',
+  paddingTop: 'calc(20px + env(safe-area-inset-top, 0))', // Добавляем отступ для кнопок Telegram
+  height: '80px', // Увеличиваем высоту header
+  minHeight: '80px'
 };
 
 const backButtonStyle = {

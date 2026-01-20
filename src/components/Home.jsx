@@ -5,6 +5,7 @@ import { useAppCache } from '../App'
 import logo from '../assets/logo.png'
 import SkeletonCard from './SkeletonCard'
 import FiltersPanel from './FiltersPanel'
+import BottomNav from './BottomNav'
 
 // Простая утилита для поверхностного сравнения объектов
 function shallowEqual(objA, objB) {
@@ -476,7 +477,7 @@ function Home({ user, onLogout, onViewAd, onCreateAd,setCurrentPage  }) {
 
 return (
     <div style={containerStyle}>
-      <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh' }}>
+      <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh', paddingBottom: '80px' }}>
         {/* TopAppBar */}
         <div style={topAppBarStyle}>
           <div style={{ width: 48 }}>
@@ -504,9 +505,6 @@ return (
               >
                 refresh
               </span>
-            </button>
-            <button style={notificationButtonStyle}>
-              <span className="material-symbols-outlined">notifications</span>
             </button>
           </div>
         </div>
@@ -629,32 +627,6 @@ return (
           <span className="material-symbols-outlined">add</span>
         </button>
 
-        {/* BottomNav */}
- <div style={bottomNavStyle}>
-    <div style={navItemActiveStyle}>
-      <span className="material-symbols-outlined">home</span>
-      <span style={navLabelStyle}>Home</span>
-    </div>
-    <div 
-      style={navItemStyle} 
-      onClick={() => setCurrentPage('favorites')}
-    >
-      <span className="material-symbols-outlined">favorite</span>
-      <span style={navLabelStyle}>Favorites</span>
-    </div>
-    <div style={navItemStyle} onClick={onCreateAd}>
-      <span className="material-symbols-outlined">add</span>
-      <span style={navLabelStyle}>Sell</span>
-    </div>
-    <div 
-      style={navItemStyle} 
-      onClick={() => setCurrentPage('profile')}
-    >
-      <span className="material-symbols-outlined">person</span>
-      <span style={navLabelStyle}>Profile</span>
-    </div>
-  </div>
-
         {/* Filters Panel */}
         {showFilters && (
           <FiltersPanel
@@ -668,22 +640,26 @@ return (
           />
         )}
       </div>
+
+      {/* BottomNav - теперь используется общий компонент из App.jsx */}
     </div>
   )
 }
 
-// Стили (остаются без изменений)
+// Стили
 const topAppBarStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '0 16px', // Измените с 20px на 16px для мобильных
+  padding: '0 16px',
   backgroundColor: 'white',
   borderBottom: '1px solid #eee',
-  height: '100px',
-  minHeight: '100px',
+  height: '60px', // Уменьшаем высоту
+  minHeight: '60px',
   boxSizing: 'border-box',
-  width: '100%'
+  width: '100%',
+  paddingTop: '20px', // Добавляем отступ сверху для кнопок Telegram
+  marginTop: 'env(safe-area-inset-top, 0)', // Для iOS безопасной зоны
 }
 
 const logoutButtonStyle = {
@@ -698,20 +674,22 @@ const logoutButtonStyle = {
 const appTitleContainerStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: '12px'
+  justifyContent: 'center',
+  flex: 1 // Занимает все доступное пространство для центрирования
 }
 
 const appLogoStyle = {
-  width: 250,
-  height: 250,
+  width: 150, // Уменьшаем размер для лучшего отображения
+  height: 150,
   objectFit: 'contain',
-  maxWidth: '100%' // Добавьте это
+  maxWidth: '100%'
 }
 
 const headerButtonsStyle = {
   display: 'flex',
   gap: '8px',
-  alignItems: 'center'
+  alignItems: 'center',
+  width: '48px' // Фиксированная ширина для выравнивания
 }
 
 const refreshButtonStyle = {
@@ -728,22 +706,9 @@ const refreshButtonStyle = {
   transition: 'background-color 0.2s ease'
 }
 
-const notificationButtonStyle = {
-  width: 40,
-  height: 40,
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  background: 'none',
-  border: 'none',
-  color: '#46A8C1',
-  cursor: 'pointer',
-  borderRadius: '20px',
-  transition: 'background-color 0.2s ease'
-}
-
 const searchContainerStyle = {
-  padding: '0 16px 12px'
+  padding: '0 16px 12px',
+  marginTop: '4px'
 }
 
 const searchWrapperStyle = {
@@ -795,6 +760,7 @@ const chipsContainerStyle = {
   WebkitOverflowScrolling: 'touch',
   maxWidth: '100vw' // Добавьте это
 }
+
 const chipStyle = {
   padding: '8px 16px',
   backgroundColor: 'white',
@@ -911,7 +877,7 @@ const noResultsStyle = {
 
 const fabStyle = {
   position: 'fixed',
-  bottom: 96,
+  bottom: '96px',
   right: 16,
   width: 56,
   height: 56,
@@ -926,43 +892,6 @@ const fabStyle = {
   cursor: 'pointer',
   transition: 'transform 0.2s ease',
   zIndex: 1000 // Добавьте z-index чтобы был над другими элементами
-}
-
-const bottomNavStyle = {
-  position: 'fixed',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  height: '80px',
-  display: 'flex',
-  justifyContent: 'space-around',
-  alignItems: 'center',
-  borderTop: '1px solid #eee',
-  backgroundColor: 'white',
-  width: '100%',
-  boxSizing: 'border-box'
-}
-
-const navItemStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: 4,
-  color: '#6b7280',
-  fontSize: 10,
-  cursor: 'pointer',
-  transition: 'color 0.2s ease',
-  flex: 1 
-}
-
-const navItemActiveStyle = {
-  ...navItemStyle,
-  color: '#46A8C1'
-}
-
-const navLabelStyle = {
-  fontSize: 10,
-  fontWeight: '500'
 }
 
 const containerStyle = {

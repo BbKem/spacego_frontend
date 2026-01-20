@@ -6,6 +6,7 @@ import AdDetail from './components/AdDetail'
 import CreateAd from './components/CreateAd'
 import Favorites from './components/Favorites'
 import Profile from './components/Profile'
+import BottomNav from './components/BottomNav'
 
 const AppCacheContext = createContext()
 
@@ -212,9 +213,17 @@ function AppContent() {
     );
   }
 
+  // Определяем, нужно ли показывать нижнюю навигацию
+  const showBottomNav = currentPage !== 'ad-detail';
+
   // Если есть пользователь - показываем приложение
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f6f6f8', fontFamily: "'Space Grotesk', sans-serif" }}>
+    <div style={{ 
+      minHeight: '100vh', 
+      backgroundColor: '#f6f6f8', 
+      fontFamily: "'Space Grotesk', sans-serif",
+      paddingBottom: showBottomNav ? '80px' : '0' // Добавляем отступ снизу для навигации
+    }}>
       {currentPage === 'home' && (
         <Home 
           user={user} 
@@ -244,6 +253,11 @@ function AppContent() {
           onViewAd={viewAd}
           onLogout={handleLogout}
         />
+      )}
+      
+      {/* Общая нижняя навигация для всех страниц кроме деталей объявления */}
+      {showBottomNav && (
+        <BottomNav currentPage={currentPage} setCurrentPage={setCurrentPage} />
       )}
     </div>
   );

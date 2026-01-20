@@ -1686,13 +1686,16 @@ function CreateAd({ onBack, onAdCreated }) {
     position: 'relative'
   }
   const headerStyle = { 
-    display: 'flex', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: '16px', 
-    backgroundColor: 'white', 
-    borderBottom: '1px solid #eee' 
-  }
+  display: 'flex', 
+  justifyContent: 'space-between', 
+  alignItems: 'center', 
+  padding: '16px', 
+  backgroundColor: 'white', 
+  borderBottom: '1px solid #eee',
+  paddingTop: 'calc(20px + env(safe-area-inset-top, 0))',
+  height: '80px',
+  minHeight: '80px'
+}
   const iconButtonStyle = { 
     width: 40, 
     height: 40, 
