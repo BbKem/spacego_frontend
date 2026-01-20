@@ -679,8 +679,8 @@ const appTitleContainerStyle = {
 }
 
 const appLogoStyle = {
-  width: 150, // Уменьшаем размер для лучшего отображения
-  height: 150,
+  width: 200, // Уменьшаем размер для лучшего отображения
+  height: 200,
   objectFit: 'contain',
   maxWidth: '100%'
 }
