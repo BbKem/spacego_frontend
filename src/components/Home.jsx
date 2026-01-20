@@ -477,7 +477,7 @@ function Home({ user, onLogout, onViewAd, onCreateAd,setCurrentPage,safeAreaTop 
 
 return (
     <div style={containerStyle}>
-      <div style={{ backgroundColor: '#f6f6f8', minHeight: '100vh', paddingBottom: '80px',paddingTop: safeAreaTop}}>
+      <div style={{ backgroundColor: '#f6f6f8', minHeight: '150vh', paddingBottom: '80px',paddingTop: safeAreaTop}}>
         {/* TopAppBar */}
         <div style={topAppBarStyle}>
           <div style={{ width: 48 }}>
