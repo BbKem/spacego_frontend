@@ -163,45 +163,21 @@ function AppContent() {
   const [user, setUser] = useState(null);
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedAd, setSelectedAd] = useState(null);
-  const [debugInfo, setDebugInfo] = useState('');
 
   useEffect(() => {
-    // Собираем отладочную информацию
-    const info = {
-      url: window.location.href.substring(0, 100),
-      hash: window.location.hash || '(empty)',
-      hasTelegram: !!window.Telegram?.WebApp,
-      hasUserInStorage: !!localStorage.getItem('telegram_user'),
-      initDataLength: localStorage.getItem('telegram_init_data')?.length || 0,
-      timestamp: new Date().toLocaleTimeString()
-    };
-    
-    const infoText = Object.entries(info)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join('\n');
-    
-    setDebugInfo(infoText);
-    console.log('Debug:', info);
-
     // Пробуем получить сохранённого пользователя
     const savedUser = localStorage.getItem('telegram_user');
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser);
-        console.log('User loaded:', userData);
         setUser(userData);
       } catch (error) {
         console.error('Error parsing user:', error);
-        setDebugInfo(prev => prev + '\n\nERROR parsing user: ' + error.message);
       }
-    } else {
-      console.log('No user in localStorage');
-      setDebugInfo(prev => prev + '\n\nNo user found in localStorage');
     }
   }, []);
 
   const handleTelegramAuthSuccess = (userData) => {
-    console.log('Telegram auth success:', userData);
     setUser(userData);
     setCurrentPage('home');
   };
@@ -224,99 +200,51 @@ function AppContent() {
     setCurrentPage('home');
   };
 
-  // Если нет пользователя - показываем TelegramInit с отладкой
+  // Если нет пользователя - показываем TelegramInit
   if (!user) {
     return (
       <TelegramInit onAuthSuccess={handleTelegramAuthSuccess}>
         <div style={loadingStyle}>
           <div style={spinnerStyle}></div>
-          <p>Инициализация Telegram...</p>
-          <pre style={{
-            marginTop: 20,
-            padding: 10,
-            backgroundColor: '#f0f0f0',
-            borderRadius: 5,
-            fontSize: 12,
-            maxWidth: '90%',
-            overflow: 'auto',
-            textAlign: 'left'
-          }}>
-            {debugInfo}
-          </pre>
+          <p>Инициализация...</p>
         </div>
       </TelegramInit>
     );
   }
 
-  // Если есть пользователь - показываем отладочную версию
+  // Если есть пользователь - показываем приложение
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      backgroundColor: '#f6f6f8',
-      position: 'relative'
-    }}>
-      {/* Отладочная панель (можно скрыть позже) */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: 'rgba(0,0,0,0.8)',
-        color: 'white',
-        padding: '8px',
-        fontSize: '11px',
-        zIndex: 9999,
-        maxHeight: '100px',
-        overflow: 'auto'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span>User: {user?.first_name || 'No name'}</span>
-          <span>Page: {currentPage}</span>
-          <button 
-            onClick={() => setDebugInfo('')}
-            style={{ fontSize: '10px', padding: '2px 6px' }}
-          >
-            Clear
-          </button>
-        </div>
-        <pre style={{ margin: '4px 0', fontSize: '10px' }}>
-          {debugInfo}
-        </pre>
-      </div>
-
-      {/* Основной контент (с отступом для отладочной панели) */}
-      <div style={{ paddingTop: '100px' }}>
-        {currentPage === 'home' && (
-          <Home 
-            user={user} 
-            onLogout={handleLogout} 
-            onViewAd={viewAd}
-            onCreateAd={() => setCurrentPage('create-ad')}
-            setCurrentPage={setCurrentPage}
-          />
-        )}
-        {currentPage === 'ad-detail' && <AdDetail ad={selectedAd} onBack={() => setCurrentPage('home')} />}
-        {currentPage === 'create-ad' && (
-          <CreateAd 
-            onBack={() => setCurrentPage('home')} 
-            onAdCreated={handleAdCreated}
-          />
-        )}
-        {currentPage === 'favorites' && (
-          <div style={{ padding: 20 }}>
-            <button onClick={() => setCurrentPage('home')}>← Назад</button>
-            <h2>Избранное</h2>
-            <p>Страница в разработке</p>
-          </div>
-        )}
-        {currentPage === 'profile' && (
-          <div style={{ padding: 20 }}>
-            <button onClick={() => setCurrentPage('home')}>← Назад</button>
-            <h2>Профиль</h2>
-            <p>Страница в разработке</p>
-          </div>
-        )}
-      </div>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f6f6f8', fontFamily: "'Space Grotesk', sans-serif" }}>
+      {currentPage === 'home' && (
+        <Home 
+          user={user} 
+          onLogout={handleLogout} 
+          onViewAd={viewAd}
+          onCreateAd={() => setCurrentPage('create-ad')}
+          setCurrentPage={setCurrentPage}
+        />
+      )}
+      {currentPage === 'ad-detail' && <AdDetail ad={selectedAd} onBack={() => setCurrentPage('home')} />}
+      {currentPage === 'create-ad' && (
+        <CreateAd 
+          onBack={() => setCurrentPage('home')} 
+          onAdCreated={handleAdCreated}
+        />
+      )}
+      {currentPage === 'favorites' && (
+        <Favorites 
+          onViewAd={viewAd} 
+          onBack={() => setCurrentPage('home')}
+        />
+      )}
+      {currentPage === 'profile' && (
+        <Profile 
+          user={user}
+          onBack={() => setCurrentPage('home')}
+          onViewAd={viewAd}
+          onLogout={handleLogout}
+        />
+      )}
     </div>
   );
 }
