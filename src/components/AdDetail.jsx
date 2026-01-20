@@ -1442,7 +1442,6 @@ const profileButtonStyle = {
   transition: 'background-color 0.2s ease'
 };
 
-// Анимация для спиннера
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
   @keyframes spin {
