@@ -165,6 +165,87 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedAd, setSelectedAd] = useState(null);
 
+  // ========== ДОБАВЛЕНО: ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP ==========
+  useEffect(() => {
+    // Инициализация Telegram Web App для скрытия стандартного UI
+    const initTelegramWebApp = () => {
+      // Проверяем, что мы внутри Telegram Web App
+      if (window.Telegram && window.Telegram.WebApp) {
+        console.log('Telegram Web App detected, initializing...');
+        
+        const tg = window.Telegram.WebApp;
+        
+        // 1. Готовим приложение
+        tg.ready();
+        
+        // 2. Расширяем на весь экран - убирает верхнюю панель с серыми кнопками
+        tg.expand();
+        
+        // 3. Скрываем стандартную кнопку (MainButton)
+        tg.MainButton.hide();
+        
+        // 4. Настраиваем цвета под ваш дизайн
+        tg.setHeaderColor('#1A1D28');
+        tg.setBackgroundColor('#1A1D28');
+        
+        // 5. Отключаем некоторые стандартные жесты
+        tg.disableVerticalSwipes();
+        
+        // 6. Сохраняем initData для авторизации
+        if (tg.initData) {
+          localStorage.setItem('telegram_init_data', tg.initData);
+          console.log('Telegram initData saved');
+        }
+        
+        // 7. Логируем параметры для отладки
+        console.log('Telegram WebApp initialized successfully', {
+          platform: tg.platform,
+          version: tg.version,
+          viewportHeight: tg.viewportHeight,
+          isExpanded: tg.isExpanded
+        });
+        
+        // 8. Настройка Back Button (опционально)
+        tg.BackButton.show();
+        tg.onEvent('backButtonClicked', () => {
+          console.log('Back button clicked in Telegram');
+          // Можно добавить навигацию назад в вашем приложении
+          if (currentPage !== 'home') {
+            setCurrentPage('home');
+          } else {
+            tg.close();
+          }
+        });
+        
+        return true;
+      }
+      return false;
+    };
+
+    // Пробуем инициализировать сразу
+    let isInitialized = initTelegramWebApp();
+    
+    // Если Telegram еще не загружен, ждем события
+    if (!isInitialized) {
+      const handleTelegramReady = () => {
+        initTelegramWebApp();
+      };
+      
+      window.addEventListener('telegramReady', handleTelegramReady);
+      
+      // Также пробуем через таймаут
+      const timeoutId = setTimeout(() => {
+        initTelegramWebApp();
+      }, 1000);
+      
+      return () => {
+        window.removeEventListener('telegramReady', handleTelegramReady);
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [currentPage]);
+  // ========== КОНЕЦ ДОБАВЛЕНИЯ ==========
+
   useEffect(() => {
     // Пробуем получить сохранённого пользователя
     const savedUser = localStorage.getItem('telegram_user');
