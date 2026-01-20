@@ -630,30 +630,30 @@ return (
         </button>
 
         {/* BottomNav */}
-        <div style={bottomNavStyle}>
-  <div style={currentPage === 'home' ? navItemActiveStyle : navItemStyle}>
-    <span className="material-symbols-outlined">home</span>
-    <span style={navLabelStyle}>Home</span>
+ <div style={bottomNavStyle}>
+    <div style={navItemActiveStyle}>
+      <span className="material-symbols-outlined">home</span>
+      <span style={navLabelStyle}>Home</span>
+    </div>
+    <div 
+      style={navItemStyle} 
+      onClick={() => setCurrentPage('favorites')}
+    >
+      <span className="material-symbols-outlined">favorite</span>
+      <span style={navLabelStyle}>Favorites</span>
+    </div>
+    <div style={navItemStyle} onClick={onCreateAd}>
+      <span className="material-symbols-outlined">add</span>
+      <span style={navLabelStyle}>Sell</span>
+    </div>
+    <div 
+      style={navItemStyle} 
+      onClick={() => setCurrentPage('profile')}
+    >
+      <span className="material-symbols-outlined">person</span>
+      <span style={navLabelStyle}>Profile</span>
+    </div>
   </div>
-  <div 
-    style={navItemStyle} 
-    onClick={() => setCurrentPage && setCurrentPage('favorites')}
-  >
-    <span className="material-symbols-outlined">favorite</span>
-    <span style={navLabelStyle}>Favorites</span>
-  </div>
-  <div style={navItemStyle} onClick={onCreateAd}>
-    <span className="material-symbols-outlined">add</span>
-    <span style={navLabelStyle}>Sell</span>
-  </div>
-  <div 
-    style={navItemStyle} 
-    onClick={() => setCurrentPage && setCurrentPage('profile')}
-  >
-    <span className="material-symbols-outlined">person</span>
-    <span style={navLabelStyle}>Profile</span>
-  </div>
-</div>
 
         {/* Filters Panel */}
         {showFilters && (
