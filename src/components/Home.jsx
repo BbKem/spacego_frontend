@@ -646,7 +646,6 @@ return (
   )
 }
 
-// Стили
 const topAppBarStyle = {
   display: 'flex',
   justifyContent: 'space-between',
@@ -654,12 +653,12 @@ const topAppBarStyle = {
   padding: '0 16px',
   backgroundColor: 'white',
   borderBottom: '1px solid #eee',
-  height: '80px', 
-  minHeight: '80px',
+  height: '95px', 
+  minHeight: '95px',
   boxSizing: 'border-box',
   width: '100%',
-  paddingTop: '20px', // Добавляем отступ сверху для кнопок Telegram
-  marginTop: 'env(safe-area-inset-top, 0)', // Для iOS безопасной зоны
+  paddingTop: '20px',
+  marginTop: 'env(safe-area-inset-top, 0)', 
 }
 
 const logoutButtonStyle = {
@@ -877,7 +876,7 @@ const noResultsStyle = {
 
 const fabStyle = {
   position: 'fixed',
-  bottom: '96px',
+  bottom: '140px', // вместо 96px
   right: 16,
   width: 56,
   height: 56,
@@ -891,7 +890,7 @@ const fabStyle = {
   boxShadow: '0 4px 12px rgba(80, 183, 156, 0.3)',
   cursor: 'pointer',
   transition: 'transform 0.2s ease',
-  zIndex: 1000 // Добавьте z-index чтобы был над другими элементами
+  zIndex: 9999 // Очень высокий z-index
 }
 
 const containerStyle = {
