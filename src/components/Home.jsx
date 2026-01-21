@@ -654,8 +654,8 @@ const topAppBarStyle = {
   padding: '0 16px',
   backgroundColor: 'white',
   borderBottom: '1px solid #eee',
-  height: '60px', // Уменьшаем высоту
-  minHeight: '60px',
+  height: '80px', 
+  minHeight: '80px',
   boxSizing: 'border-box',
   width: '100%',
   paddingTop: '20px', // Добавляем отступ сверху для кнопок Telegram

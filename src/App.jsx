@@ -193,7 +193,7 @@ function AppContent() {
         if (isIOS) {
           // Для iOS добавляем отступ для Dynamic Island
           const safeArea = tg.viewportStableHeight || tg.viewportHeight;
-          const additionalPadding = 35; // Дополнительный отступ для Dynamic Island
+          const additionalPadding = 40; // Дополнительный отступ для Dynamic Island
           setSafeAreaTop(additionalPadding);
           console.log('iOS detected, adding safe area top:', additionalPadding);
         }
