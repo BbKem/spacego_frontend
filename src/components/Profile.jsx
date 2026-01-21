@@ -3,14 +3,14 @@ import { useState, useEffect } from 'react';
 import AdCard from './AdCard';
 import SkeletonCard from './SkeletonCard';
 
-function Profile({ user, onBack, onViewAd, onLogout }) {
+function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   const [activeTab, setActiveTab] = useState('active');
-  const [userAds, setUserAds] = useState([]); // Все объявления пользователя
+  const [userAds, setUserAds] = useState([]);
   const [favorites, setFavorites] = useState([]);
-  const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFavoritesLoading, setIsFavoritesLoading] = useState(false);
-  const [isStatsLoading, setIsStatsLoading] = useState(true);
+  const [showMenuForAd, setShowMenuForAd] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
@@ -19,7 +19,6 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
   useEffect(() => {
     fetchUserAds();
     fetchFavorites();
-    fetchStats();
   }, []);
 
   const fetchUserAds = async () => {
@@ -40,15 +39,6 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
       if (response.ok) {
         const data = await response.json();
         setUserAds(data);
-        
-        // Обновляем статистику на основе полученных данных
-        const activeCount = data.filter(ad => !ad.is_archived).length;
-        const archivedCount = data.filter(ad => ad.is_archived).length;
-        setStats(prev => ({
-          ...prev,
-          active: activeCount,
-          archived: archivedCount
-        }));
       } else {
         console.error('Ошибка загрузки объявлений:', response.status);
       }
@@ -63,10 +53,7 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
     setIsFavoritesLoading(true);
     try {
       const initData = localStorage.getItem('telegram_init_data');
-      if (!initData) {
-        console.log('Нет данных авторизации для избранного');
-        return;
-      }
+      if (!initData) return;
 
       const response = await fetch(`${API_BASE}/api/favorites`, {
         headers: {
@@ -77,12 +64,6 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
       if (response.ok) {
         const data = await response.json();
         setFavorites(data);
-        
-        // Обновляем статистику избранного
-        setStats(prev => ({
-          ...prev,
-          favorites: data.length
-        }));
       }
     } catch (error) {
       console.error('Ошибка загрузки избранного:', error);
@@ -91,28 +72,8 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
     }
   };
 
-  const fetchStats = async () => {
-    setIsStatsLoading(true);
-    try {
-      const initData = localStorage.getItem('telegram_init_data');
-      if (!initData) {
-        console.log('Нет данных авторизации для статистики');
-        setIsStatsLoading(false);
-        return;
-      }
-
-      // Так как у нас нет отдельного эндпоинта для статистики,
-      // считаем на основе уже загруженных данных
-      setIsStatsLoading(false);
-    } catch (error) {
-      console.error('Ошибка загрузки статистики:', error);
-      setIsStatsLoading(false);
-    }
-  };
-
   const formatDate = (dateString) => {
     if (!dateString) return 'Недавно';
-    
     const date = new Date(dateString);
     return date.toLocaleDateString('ru-RU', {
       day: 'numeric',
@@ -122,12 +83,8 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
   };
 
   const getInitials = () => {
-    if (user.first_name) {
-      return user.first_name[0].toUpperCase();
-    }
-    if (user.username) {
-      return user.username[0].toUpperCase();
-    }
+    if (user.first_name) return user.first_name[0].toUpperCase();
+    if (user.username) return user.username[0].toUpperCase();
     return 'П';
   };
 
@@ -135,41 +92,30 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
     if (user.first_name && user.last_name) {
       return `${user.first_name} ${user.last_name}`;
     }
-    if (user.first_name) {
-      return user.first_name;
-    }
-    if (user.username) {
-      return `@${user.username}`;
-    }
+    if (user.first_name) return user.first_name;
+    if (user.username) return `@${user.username}`;
     return 'Пользователь';
   };
 
   const getCurrentAds = () => {
     switch (activeTab) {
-      case 'active': 
-        return userAds.filter(ad => !ad.is_archived);
-      case 'archived': 
-        return userAds.filter(ad => ad.is_archived === true);
-      case 'favorites': 
-        return favorites;
-      default: 
-        return [];
+      case 'active': return userAds.filter(ad => !ad.is_archived);
+      case 'archived': return userAds.filter(ad => ad.is_archived === true);
+      case 'favorites': return favorites;
+      default: return [];
     }
   };
 
   const getCurrentLoading = () => {
     switch (activeTab) {
       case 'active': 
-      case 'archived': 
-        return isLoading;
-      case 'favorites': 
-        return isFavoritesLoading;
-      default: 
-        return false;
+      case 'archived': return isLoading;
+      case 'favorites': return isFavoritesLoading;
+      default: return false;
     }
   };
 
-  // Функция для архивирования объявления
+  // Архивировать объявление
   const archiveAd = async (adId) => {
     try {
       const initData = localStorage.getItem('telegram_init_data');
@@ -182,17 +128,19 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
       });
       
       if (response.ok) {
-        // Обновляем локальное состояние
         setUserAds(prev => prev.map(ad => 
           ad.id === adId ? { ...ad, is_archived: true } : ad
         ));
+        setShowMenuForAd(null);
+        setShowDeleteConfirm(null);
       }
     } catch (error) {
       console.error('Ошибка архивирования объявления:', error);
+      alert('Не удалось переместить в архив');
     }
   };
 
-  // Функция для восстановления из архива
+  // Восстановить из архива
   const restoreAd = async (adId) => {
     try {
       const initData = localStorage.getItem('telegram_init_data');
@@ -205,14 +153,30 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
       });
       
       if (response.ok) {
-        // Обновляем локальное состояние
         setUserAds(prev => prev.map(ad => 
           ad.id === adId ? { ...ad, is_archived: false } : ad
         ));
+        setShowMenuForAd(null);
       }
     } catch (error) {
       console.error('Ошибка восстановления объявления:', error);
+      alert('Не удалось восстановить объявление');
     }
+  };
+
+  // Удалить окончательно (опционально)
+  const deleteAd = async (adId) => {
+    // Здесь можно реализовать полное удаление, если нужно
+    console.log('Удалить объявление', adId);
+  };
+
+  // Редактировать объявление
+  const editAd = (adId) => {
+    // Здесь будет переход на страницу редактирования
+    console.log('Редактировать объявление', adId);
+    // Для примера, откроем алерт
+    alert('Редактирование объявления - в разработке');
+    setShowMenuForAd(null);
   };
 
   const getAdsCountByStatus = () => {
@@ -308,29 +272,104 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
             {getCurrentAds().map(ad => (
               <div key={ad.id} style={adCardContainerStyle}>
                 <AdCard ad={ad} onClick={() => onViewAd(ad)} />
+                
+                {/* Меню управления для активных объявлений */}
                 {activeTab === 'active' && (
-                  <button 
-                    style={archiveButtonStyle}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      archiveAd(ad.id);
-                    }}
-                    title="В архив"
-                  >
-                    <span className="material-symbols-outlined">archive</span>
-                  </button>
+                  <>
+                    <button 
+                      style={menuButtonStyle}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenuForAd(showMenuForAd === ad.id ? null : ad.id);
+                      }}
+                    >
+                      <span className="material-symbols-outlined">more_vert</span>
+                    </button>
+                    
+                    {showMenuForAd === ad.id && (
+                      <div style={menuDropdownStyle}>
+                        <button 
+                          style={menuItemStyle}
+                          onClick={() => editAd(ad.id)}
+                        >
+                          <span className="material-symbols-outlined" style={menuIconStyle}>edit</span>
+                          Редактировать
+                        </button>
+                        <button 
+                          style={menuItemStyle}
+                          onClick={() => {
+                            setShowDeleteConfirm(ad.id);
+                            setShowMenuForAd(null);
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#ef4444'}}>archive</span>
+                          <span style={{color: '#ef4444'}}>В архив</span>
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
+                
+                {/* Кнопки для архивных объявлений */}
                 {activeTab === 'archived' && (
-                  <button 
-                    style={restoreButtonStyle}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      restoreAd(ad.id);
-                    }}
-                    title="Восстановить"
-                  >
-                    <span className="material-symbols-outlined">unarchive</span>
-                  </button>
+                  <>
+                    <button 
+                      style={menuButtonStyle}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenuForAd(showMenuForAd === ad.id ? null : ad.id);
+                      }}
+                    >
+                      <span className="material-symbols-outlined">more_vert</span>
+                    </button>
+                    
+                    {showMenuForAd === ad.id && (
+                      <div style={menuDropdownStyle}>
+                        <button 
+                          style={menuItemStyle}
+                          onClick={() => restoreAd(ad.id)}
+                        >
+                          <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#10b981'}}>unarchive</span>
+                          <span style={{color: '#10b981'}}>Восстановить</span>
+                        </button>
+                        <button 
+                          style={menuItemStyle}
+                          onClick={() => {
+                            if (window.confirm('Вы уверены, что хотите полностью удалить это объявление?')) {
+                              deleteAd(ad.id);
+                            }
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#ef4444'}}>delete</span>
+                          <span style={{color: '#ef4444'}}>Удалить</span>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {/* Подтверждение удаления/архивирования */}
+                {showDeleteConfirm === ad.id && (
+                  <div style={confirmOverlayStyle}>
+                    <div style={confirmModalStyle}>
+                      <h3 style={confirmTitleStyle}>Переместить в архив?</h3>
+                      <p style={confirmTextStyle}>Объявление будет скрыто из поиска, но останется в вашем архиве.</p>
+                      <div style={confirmButtonsStyle}>
+                        <button 
+                          style={confirmCancelStyle}
+                          onClick={() => setShowDeleteConfirm(null)}
+                        >
+                          Отмена
+                        </button>
+                        <button 
+                          style={confirmDeleteStyle}
+                          onClick={() => archiveAd(ad.id)}
+                        >
+                          В архив
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             ))}
@@ -352,6 +391,15 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
                activeTab === 'archived' ? 'Здесь будут ваши архивные объявления' : 
                'Добавляйте объявления в избранное'}
             </p>
+            {activeTab === 'active' && (
+              <button 
+                style={createAdButtonStyle}
+                onClick={() => setCurrentPage('create-ad')}
+              >
+                <span className="material-symbols-outlined" style={{marginRight: 8}}>add</span>
+                Создать объявление
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -369,7 +417,7 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
   );
 }
 
-// Стили (оставляем те же, что и в вашем коде)
+// Стили (добавляем новые стили для меню)
 const pageStyle = {
   backgroundColor: '#f6f6f8',
   minHeight: '100vh',
@@ -517,7 +565,8 @@ const tabActiveStyle = {
 const contentStyle = {
   flex: 1,
   padding: '16px',
-  paddingBottom: '80px'
+  paddingBottom: '80px',
+  position: 'relative'
 };
 
 const gridStyle = {
@@ -530,10 +579,10 @@ const adCardContainerStyle = {
   position: 'relative'
 };
 
-const archiveButtonStyle = {
+const menuButtonStyle = {
   position: 'absolute',
   top: 8,
-  left: 8,
+  right: 8,
   width: 30,
   height: 30,
   borderRadius: 15,
@@ -547,10 +596,102 @@ const archiveButtonStyle = {
   boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
 };
 
-const restoreButtonStyle = {
-  ...archiveButtonStyle,
-  backgroundColor: 'rgba(70, 168, 193, 0.9)',
-  color: 'white'
+const menuDropdownStyle = {
+  position: 'absolute',
+  top: 40,
+  right: 8,
+  backgroundColor: 'white',
+  borderRadius: 8,
+  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+  zIndex: 10,
+  minWidth: 180,
+  overflow: 'hidden'
+};
+
+const menuItemStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  width: '100%',
+  padding: '12px 16px',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  textAlign: 'left',
+  fontSize: 14,
+  color: '#374151',
+  transition: 'background-color 0.2s ease',
+  borderBottom: '1px solid #f3f4f6'
+};
+
+const menuIconStyle = {
+  fontSize: 18,
+  color: '#6b7280'
+};
+
+const confirmOverlayStyle = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0,0,0,0.5)',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  zIndex: 20,
+  borderRadius: 12
+};
+
+const confirmModalStyle = {
+  backgroundColor: 'white',
+  borderRadius: 12,
+  padding: '24px',
+  maxWidth: '320px',
+  width: '90%'
+};
+
+const confirmTitleStyle = {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#0d121b',
+  marginBottom: '12px'
+};
+
+const confirmTextStyle = {
+  fontSize: 14,
+  color: '#6b7280',
+  marginBottom: '20px',
+  lineHeight: 1.4
+};
+
+const confirmButtonsStyle = {
+  display: 'flex',
+  gap: '12px'
+};
+
+const confirmCancelStyle = {
+  flex: 1,
+  padding: '12px',
+  backgroundColor: '#f3f4f6',
+  color: '#374151',
+  border: 'none',
+  borderRadius: 8,
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer'
+};
+
+const confirmDeleteStyle = {
+  flex: 1,
+  padding: '12px',
+  backgroundColor: '#fee2e2',
+  color: '#dc2626',
+  border: 'none',
+  borderRadius: 8,
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer'
 };
 
 const emptyStateStyle = {
@@ -578,7 +719,22 @@ const emptyTitleStyle = {
 const emptyTextStyle = {
   fontSize: 14,
   color: '#6b7280',
-  maxWidth: '300px'
+  maxWidth: '300px',
+  marginBottom: '20px'
+};
+
+const createAdButtonStyle = {
+  padding: '12px 24px',
+  backgroundColor: '#46A8C1',
+  color: 'white',
+  border: 'none',
+  borderRadius: 8,
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
 };
 
 const logoutContainerStyle = {

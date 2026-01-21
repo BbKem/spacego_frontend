@@ -364,6 +364,7 @@ function AppContent() {
           onBack={() => setCurrentPage('home')}
           onViewAd={viewAd}
           onLogout={handleLogout}
+          setCurrentPage={setCurrentPage}
           safeAreaTop={safeAreaTop}
         />
       )}
