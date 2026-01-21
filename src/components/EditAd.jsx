@@ -42,13 +42,13 @@ function EditAd({ onBack, onUpdate }) {
           
           // Основные поля
           setFormData({
-            title: adData.title || '',
-            description: adData.description || '',
-            price: adData.price ? adData.price.toString() : '',
-            categoryId: adData.category_id || adData.categoryId || '',
-            condition: adData.condition || 'new',
-            location: adData.location || ''
-          });
+  title: adData.title || '',
+  description: adData.description || '',
+  price: adData.price ? adData.price.toString() : '',
+  categoryId: adData.category_id || adData.categoryId || '',
+  condition: adData.condition || 'new',
+  location: adData.location || ''
+});
 
           // Детали недвижимости
           if (adData.property_details) {

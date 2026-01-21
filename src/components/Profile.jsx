@@ -165,11 +165,45 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     }
   };
 
-  // Удалить окончательно (опционально)
-  const deleteAd = async (adId) => {
-    // Здесь можно реализовать полное удаление, если нужно
-    console.log('Удалить объявление', adId);
-  };
+const deleteAd = async (adId) => {
+  if (window.confirm('Вы уверены, что хотите полностью удалить это объявление? Это действие нельзя отменить.')) {
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      const response = await fetch(`${API_BASE}/api/ads/${adId}`, {
+        method: 'DELETE',
+        headers: {
+          'telegram-init-data': initData,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        setUserAds(prev => prev.filter(ad => ad.id !== adId));
+        alert('Объявление удалено');
+      } else {
+        alert('Ошибка удаления');
+      }
+    } catch (error) {
+      console.error('Ошибка удаления объявления:', error);
+      alert('Ошибка удаления');
+    }
+  }
+};
+
+// И обновите меню для архивных объявлений:
+{activeTab === 'archived' && (
+  <button 
+    style={menuItemStyle}
+    onClick={() => {
+      if (window.confirm('Удалить объявление навсегда?')) {
+        deleteAd(ad.id);
+      }
+    }}
+  >
+    <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#ef4444'}}>delete</span>
+    <span style={{color: '#ef4444'}}>Удалить навсегда</span>
+  </button>
+)}
 
 
 const editAd = (adId) => {
@@ -182,6 +216,7 @@ const editAd = (adId) => {
   }
   setShowMenuForAd(null);
 };
+
 
   const getAdsCountByStatus = () => {
     const active = userAds.filter(ad => !ad.is_archived).length;
@@ -406,16 +441,6 @@ const editAd = (adId) => {
             )}
           </div>
         )}
-      </div>
-
-      {/* Logout Button */}
-      <div style={logoutContainerStyle}>
-        <button onClick={onLogout} style={logoutButtonStyle}>
-          <span className="material-symbols-outlined" style={{ marginRight: '8px' }}>
-            logout
-          </span>
-          Выйти из аккаунта
-        </button>
       </div>
     </div>
   );

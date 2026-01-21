@@ -52,39 +52,39 @@ const AppCacheProvider = ({ children }) => {
   }
 
   const fetchAds = async (filters = {}) => {
-    const cleanFilters = {};
-    Object.keys(filters).forEach(key => {
-      const value = filters[key];
-      if (value !== undefined && value !== null && value !== '' && value !== false) {
-        cleanFilters[key] = value;
-      }
-    });
+  const cleanFilters = {};
+  Object.keys(filters).forEach(key => {
+    const value = filters[key];
+    if (value !== undefined && value !== null && value !== '' && value !== false) {
+      cleanFilters[key] = value;
+    }
+  });
 
-    const queryParams = new URLSearchParams(cleanFilters).toString();
-    const url = `${API_BASE}/api/ads${queryParams ? '?' + queryParams : ''}`;
+  const queryParams = new URLSearchParams(cleanFilters).toString();
+  const url = `${API_BASE}/api/ads${queryParams ? '?' + queryParams : ''}`;
 
-    const res = await fetch(url);
-    const data = await res.json();
+  const res = await fetch(url);
+  const data = await res.json();
 
-    return data.map(ad => {
-      if (!ad.photo_urls) {
-        ad.photo_urls = [];
-      }
-      if (ad.property_details) {
-        try {
-          if (typeof ad.property_details === 'string') {
-            ad.property_details = JSON.parse(ad.property_details);
-          }
-        } catch (e) {
-          console.error("Ошибка парсинга property_details:", e);
-          ad.property_details = {};
+  return data.map(ad => {
+    if (!ad.photo_urls) {
+      ad.photo_urls = [];
+    }
+    if (ad.property_details) {
+      try {
+        if (typeof ad.property_details === 'string') {
+          ad.property_details = JSON.parse(ad.property_details);
         }
-      } else {
+      } catch (e) {
+        console.error("Ошибка парсинга property_details:", e);
         ad.property_details = {};
       }
-      return ad;
-    });
-  }
+    } else {
+      ad.property_details = {};
+    }
+    return ad;
+  });
+}
    
   const fetchRootCategories = async () => {
     const res = await fetch(`${API_BASE}/api/categories`) 
