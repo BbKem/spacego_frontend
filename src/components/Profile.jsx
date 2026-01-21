@@ -5,10 +5,11 @@ import SkeletonCard from './SkeletonCard';
 
 function Profile({ user, onBack, onViewAd, onLogout }) {
   const [activeTab, setActiveTab] = useState('active');
-  const [userAds, setUserAds] = useState({ active: [], archived: [] });
+  const [userAds, setUserAds] = useState([]); // Все объявления пользователя
   const [favorites, setFavorites] = useState([]);
   const [stats, setStats] = useState(null);
-  const [isLoading, setIsLoading] = useState({ active: false, archived: false, favorites: false });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFavoritesLoading, setIsFavoritesLoading] = useState(false);
   const [isStatsLoading, setIsStatsLoading] = useState(true);
 
   const API_BASE = import.meta.env.DEV 
@@ -16,25 +17,21 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
     : 'https://spacego-backend.onrender.com';
 
   useEffect(() => {
+    fetchUserAds();
+    fetchFavorites();
     fetchStats();
-    fetchActiveAds();
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'active' && userAds.active.length === 0) {
-      fetchActiveAds();
-    } else if (activeTab === 'archived' && userAds.archived.length === 0) {
-      fetchArchivedAds();
-    } else if (activeTab === 'favorites' && favorites.length === 0) {
-      fetchFavorites();
-    }
-  }, [activeTab]);
-
-  const fetchStats = async () => {
-    setIsStatsLoading(true);
+  const fetchUserAds = async () => {
+    setIsLoading(true);
     try {
       const initData = localStorage.getItem('telegram_init_data');
-      const response = await fetch(`${API_BASE}/api/user/stats`, {
+      if (!initData) {
+        console.log('Нет данных авторизации');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/api/my-ads`, {
         headers: {
           'telegram-init-data': initData
         }
@@ -42,61 +39,35 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
       
       if (response.ok) {
         const data = await response.json();
-        setStats(data);
+        setUserAds(data);
+        
+        // Обновляем статистику на основе полученных данных
+        const activeCount = data.filter(ad => !ad.is_archived).length;
+        const archivedCount = data.filter(ad => ad.is_archived).length;
+        setStats(prev => ({
+          ...prev,
+          active: activeCount,
+          archived: archivedCount
+        }));
+      } else {
+        console.error('Ошибка загрузки объявлений:', response.status);
       }
     } catch (error) {
-      console.error('Ошибка загрузки статистики:', error);
+      console.error('Ошибка загрузки объявлений пользователя:', error);
     } finally {
-      setIsStatsLoading(false);
-    }
-  };
-
-  const fetchActiveAds = async () => {
-    setIsLoading(prev => ({ ...prev, active: true }));
-    try {
-      const initData = localStorage.getItem('telegram_init_data');
-      const response = await fetch(`${API_BASE}/api/user/ads?status=active`, {
-        headers: {
-          'telegram-init-data': initData
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUserAds(prev => ({ ...prev, active: data }));
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки активных объявлений:', error);
-    } finally {
-      setIsLoading(prev => ({ ...prev, active: false }));
-    }
-  };
-
-  const fetchArchivedAds = async () => {
-    setIsLoading(prev => ({ ...prev, archived: true }));
-    try {
-      const initData = localStorage.getItem('telegram_init_data');
-      const response = await fetch(`${API_BASE}/api/user/ads?status=archived`, {
-        headers: {
-          'telegram-init-data': initData
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUserAds(prev => ({ ...prev, archived: data }));
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки архивных объявлений:', error);
-    } finally {
-      setIsLoading(prev => ({ ...prev, archived: false }));
+      setIsLoading(false);
     }
   };
 
   const fetchFavorites = async () => {
-    setIsLoading(prev => ({ ...prev, favorites: true }));
+    setIsFavoritesLoading(true);
     try {
       const initData = localStorage.getItem('telegram_init_data');
+      if (!initData) {
+        console.log('Нет данных авторизации для избранного');
+        return;
+      }
+
       const response = await fetch(`${API_BASE}/api/favorites`, {
         headers: {
           'telegram-init-data': initData
@@ -106,15 +77,42 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
       if (response.ok) {
         const data = await response.json();
         setFavorites(data);
+        
+        // Обновляем статистику избранного
+        setStats(prev => ({
+          ...prev,
+          favorites: data.length
+        }));
       }
     } catch (error) {
       console.error('Ошибка загрузки избранного:', error);
     } finally {
-      setIsLoading(prev => ({ ...prev, favorites: false }));
+      setIsFavoritesLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    setIsStatsLoading(true);
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      if (!initData) {
+        console.log('Нет данных авторизации для статистики');
+        setIsStatsLoading(false);
+        return;
+      }
+
+      // Так как у нас нет отдельного эндпоинта для статистики,
+      // считаем на основе уже загруженных данных
+      setIsStatsLoading(false);
+    } catch (error) {
+      console.error('Ошибка загрузки статистики:', error);
+      setIsStatsLoading(false);
     }
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'Недавно';
+    
     const date = new Date(dateString);
     return date.toLocaleDateString('ru-RU', {
       day: 'numeric',
@@ -148,21 +146,82 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
 
   const getCurrentAds = () => {
     switch (activeTab) {
-      case 'active': return userAds.active;
-      case 'archived': return userAds.archived;
-      case 'favorites': return favorites;
-      default: return [];
+      case 'active': 
+        return userAds.filter(ad => !ad.is_archived);
+      case 'archived': 
+        return userAds.filter(ad => ad.is_archived === true);
+      case 'favorites': 
+        return favorites;
+      default: 
+        return [];
     }
   };
 
   const getCurrentLoading = () => {
     switch (activeTab) {
-      case 'active': return isLoading.active;
-      case 'archived': return isLoading.archived;
-      case 'favorites': return isLoading.favorites;
-      default: return false;
+      case 'active': 
+      case 'archived': 
+        return isLoading;
+      case 'favorites': 
+        return isFavoritesLoading;
+      default: 
+        return false;
     }
   };
+
+  // Функция для архивирования объявления
+  const archiveAd = async (adId) => {
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      const response = await fetch(`${API_BASE}/api/ads/${adId}/archive`, {
+        method: 'POST',
+        headers: {
+          'telegram-init-data': initData,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        // Обновляем локальное состояние
+        setUserAds(prev => prev.map(ad => 
+          ad.id === adId ? { ...ad, is_archived: true } : ad
+        ));
+      }
+    } catch (error) {
+      console.error('Ошибка архивирования объявления:', error);
+    }
+  };
+
+  // Функция для восстановления из архива
+  const restoreAd = async (adId) => {
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      const response = await fetch(`${API_BASE}/api/ads/${adId}/restore`, {
+        method: 'POST',
+        headers: {
+          'telegram-init-data': initData,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        // Обновляем локальное состояние
+        setUserAds(prev => prev.map(ad => 
+          ad.id === adId ? { ...ad, is_archived: false } : ad
+        ));
+      }
+    } catch (error) {
+      console.error('Ошибка восстановления объявления:', error);
+    }
+  };
+
+  const getAdsCountByStatus = () => {
+    const active = userAds.filter(ad => !ad.is_archived).length;
+    const archived = userAds.filter(ad => ad.is_archived).length;
+    return { active, archived };
+  };
+
+  const counts = getAdsCountByStatus();
 
   return (
     <div style={pageStyle}>
@@ -199,22 +258,20 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
       </div>
 
       {/* Stats */}
-      {!isStatsLoading && stats && (
-        <div style={statsContainerStyle}>
-          <div style={statItemStyle}>
-            <div style={statNumberStyle}>{stats.active}</div>
-            <div style={statLabelStyle}>Активные</div>
-          </div>
-          <div style={statItemStyle}>
-            <div style={statNumberStyle}>{stats.archived}</div>
-            <div style={statLabelStyle}>Архив</div>
-          </div>
-          <div style={statItemStyle}>
-            <div style={statNumberStyle}>{stats.favorites}</div>
-            <div style={statLabelStyle}>Избранное</div>
-          </div>
+      <div style={statsContainerStyle}>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{counts.active}</div>
+          <div style={statLabelStyle}>Активные</div>
         </div>
-      )}
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{counts.archived}</div>
+          <div style={statLabelStyle}>Архив</div>
+        </div>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{favorites.length}</div>
+          <div style={statLabelStyle}>Избранное</div>
+        </div>
+      </div>
 
       {/* Tabs */}
       <div style={tabsContainerStyle}>
@@ -249,7 +306,33 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
         ) : getCurrentAds().length > 0 ? (
           <div style={gridStyle}>
             {getCurrentAds().map(ad => (
-              <AdCard key={ad.id} ad={ad} onClick={() => onViewAd(ad)} />
+              <div key={ad.id} style={adCardContainerStyle}>
+                <AdCard ad={ad} onClick={() => onViewAd(ad)} />
+                {activeTab === 'active' && (
+                  <button 
+                    style={archiveButtonStyle}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      archiveAd(ad.id);
+                    }}
+                    title="В архив"
+                  >
+                    <span className="material-symbols-outlined">archive</span>
+                  </button>
+                )}
+                {activeTab === 'archived' && (
+                  <button 
+                    style={restoreButtonStyle}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      restoreAd(ad.id);
+                    }}
+                    title="Восстановить"
+                  >
+                    <span className="material-symbols-outlined">unarchive</span>
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         ) : (
@@ -286,7 +369,7 @@ function Profile({ user, onBack, onViewAd, onLogout }) {
   );
 }
 
-// Стили
+// Стили (оставляем те же, что и в вашем коде)
 const pageStyle = {
   backgroundColor: '#f6f6f8',
   minHeight: '100vh',
@@ -441,6 +524,33 @@ const gridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))',
   gap: '12px'
+};
+
+const adCardContainerStyle = {
+  position: 'relative'
+};
+
+const archiveButtonStyle = {
+  position: 'absolute',
+  top: 8,
+  left: 8,
+  width: 30,
+  height: 30,
+  borderRadius: 15,
+  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  border: 'none',
+  cursor: 'pointer',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  zIndex: 2,
+  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+};
+
+const restoreButtonStyle = {
+  ...archiveButtonStyle,
+  backgroundColor: 'rgba(70, 168, 193, 0.9)',
+  color: 'white'
 };
 
 const emptyStateStyle = {
