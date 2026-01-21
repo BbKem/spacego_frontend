@@ -876,7 +876,7 @@ const noResultsStyle = {
 
 const fabStyle = {
   position: 'fixed',
-  bottom: '140px', // вместо 96px
+  bottom: '96px',
   right: 16,
   width: 56,
   height: 56,
@@ -890,7 +890,7 @@ const fabStyle = {
   boxShadow: '0 4px 12px rgba(80, 183, 156, 0.3)',
   cursor: 'pointer',
   transition: 'transform 0.2s ease',
-  zIndex: 9999 // Очень высокий z-index
+  zIndex: 1000 // Добавьте z-index чтобы был над другими элементами
 }
 
 const containerStyle = {

@@ -1966,15 +1966,18 @@ function CreateAd({ onBack, onAdCreated }) {
     fontSize: '16px',
     fontWeight: '500'
   }
-  const footerStyle = { 
-    position: 'fixed', 
-    bottom: 0, 
-    left: 0, 
-    right: 0, 
-    padding: '16px', 
-    backgroundColor: 'white', 
-    borderTop: '1px solid #eee' 
-  }
+ // Находите этот стиль в CreateAd.jsx:
+const footerStyle = { 
+  position: 'fixed', 
+  bottom: 0, 
+  left: 0, 
+  right: 0, 
+  padding: '16px', 
+  backgroundColor: 'white', 
+  borderTop: '1px solid #eee',
+  zIndex: 1001, // Добавьте этот z-index
+  paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0))' // Добавьте safe area для iOS
+}
   const publishButtonStyle = { 
     width: '100%', 
     height: 56, 
