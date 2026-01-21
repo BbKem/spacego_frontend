@@ -125,24 +125,6 @@ const AppCacheProvider = ({ children }) => {
     }
   }
 
-  const updateAdInCache = (updatedAd) => {
-    if (cache.ads) {
-      setCache(prev => ({
-        ...prev,
-        ads: prev.ads.map(ad => ad.id === updatedAd.id ? updatedAd : ad)
-      }))
-    }
-  }
-
-  const removeAdFromCache = (adId) => {
-    if (cache.ads) {
-      setCache(prev => ({
-        ...prev,
-        ads: prev.ads.filter(ad => ad.id !== adId)
-      }))
-    }
-  }
-
   const getSubcategories = async (parentId) => {
     if (cache.subcategories[parentId]) {
       return cache.subcategories[parentId];
@@ -170,8 +152,6 @@ const AppCacheProvider = ({ children }) => {
         ...cache,
         refreshData,
         addNewAd,
-        updateAdInCache,
-        removeAdFromCache,
         fetchRootCategories,
         getSubcategories
       }}
@@ -185,68 +165,38 @@ function AppContent() {
   const [user, setUser] = useState(null);
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedAd, setSelectedAd] = useState(null);
-  const [editingAd, setEditingAd] = useState(null);
   const [safeAreaTop, setSafeAreaTop] = useState(0);
 
   // ========== ДОБАВЛЕНО: ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP ==========
   useEffect(() => {
-    // Инициализация Telegram Web App для скрытия стандартного UI
     const initTelegramWebApp = () => {
-      // Проверяем, что мы внутри Telegram Web App
       if (window.Telegram && window.Telegram.WebApp) {
         console.log('Telegram Web App detected, initializing...');
         
         const tg = window.Telegram.WebApp;
-        
-        // 1. Готовим приложение
         tg.ready();
-        
-        // 2. Расширяем на весь экран - убирает верхнюю панель с серыми кнопками
-        // Но оставляем safe area для iOS
         tg.expand();
-        
-        // 3. Скрываем стандартную кнопку (MainButton)
         tg.MainButton.hide();
         
-        // 4. Получаем безопасную зону для iOS (для Dynamic Island)
         const platform = tg.platform || '';
         const isIOS = platform.includes('ios') || /iPhone|iPad|iPod/.test(navigator.userAgent);
         
         if (isIOS) {
-          // Для iOS добавляем отступ для Dynamic Island
           const safeArea = tg.viewportStableHeight || tg.viewportHeight;
-          const additionalPadding = 40; // Дополнительный отступ для Dynamic Island
+          const additionalPadding = 40;
           setSafeAreaTop(additionalPadding);
-          console.log('iOS detected, adding safe area top:', additionalPadding);
         }
         
-        // 5. Настраиваем цвета под ваш дизайн
-        tg.setHeaderColor('#f6f6f8'); // Используем цвет фона вашего приложения
+        tg.setHeaderColor('#f6f6f8');
         tg.setBackgroundColor('#f6f6f8');
-        
-        // 6. Отключаем некоторые стандартные жесты
         tg.disableVerticalSwipes();
         
-        // 7. Сохраняем initData для авторизации
         if (tg.initData) {
           localStorage.setItem('telegram_init_data', tg.initData);
-          console.log('Telegram initData saved');
         }
         
-        // 8. Логируем параметры для отладки
-        console.log('Telegram WebApp initialized successfully', {
-          platform: tg.platform,
-          version: tg.version,
-          viewportHeight: tg.viewportHeight,
-          viewportStableHeight: tg.viewportStableHeight,
-          isExpanded: tg.isExpanded
-        });
-        
-        // 9. Настройка Back Button (опционально)
         tg.BackButton.show();
         tg.onEvent('backButtonClicked', () => {
-          console.log('Back button clicked in Telegram');
-          // Можно добавить навигацию назад в вашем приложении
           if (currentPage !== 'home') {
             setCurrentPage('home');
           } else {
@@ -259,10 +209,8 @@ function AppContent() {
       return false;
     };
 
-    // Пробуем инициализировать сразу
     let isInitialized = initTelegramWebApp();
     
-    // Если Telegram еще не загружен, ждем события
     if (!isInitialized) {
       const handleTelegramReady = () => {
         initTelegramWebApp();
@@ -270,7 +218,6 @@ function AppContent() {
       
       window.addEventListener('telegramReady', handleTelegramReady);
       
-      // Также пробуем через таймаут
       const timeoutId = setTimeout(() => {
         initTelegramWebApp();
       }, 1000);
@@ -281,10 +228,8 @@ function AppContent() {
       };
     }
   }, [currentPage]);
-  // ========== КОНЕЦ ДОБАВЛЕНИЯ ==========
 
   useEffect(() => {
-    // Пробуем получить сохранённого пользователя
     const savedUser = localStorage.getItem('telegram_user');
     if (savedUser) {
       try {
@@ -304,10 +249,10 @@ function AppContent() {
   const handleLogout = () => {
     localStorage.removeItem('telegram_user');
     localStorage.removeItem('telegram_init_data');
+    localStorage.removeItem('editing_ad'); // Очищаем при выходе
     setUser(null);
     setCurrentPage('home');
     setSelectedAd(null);
-    setEditingAd(null);
   };
 
   const viewAd = (ad) => {
@@ -320,17 +265,10 @@ function AppContent() {
     setCurrentPage('home');
   };
 
-  // Обработчик редактирования объявления
-  const handleEditAd = (ad) => {
-    setEditingAd(ad);
-    setCurrentPage('edit-ad');
-  };
-
-  // Обработчик обновления объявления
   const handleAdUpdated = (updatedAd) => {
     console.log('Объявление обновлено:', updatedAd);
-    setCurrentPage('profile'); // Возвращаемся в профиль после успешного обновления
-    setEditingAd(null);
+    setCurrentPage('profile');
+    localStorage.removeItem('editing_ad');
   };
 
   // Если нет пользователя - показываем TelegramInit
@@ -360,7 +298,6 @@ function AppContent() {
     paddingTop: `${safeAreaTop}px`
   };
 
-  // Если есть пользователь - показываем приложение
   return (
     <div style={safeAreaStyle}>
       {currentPage === 'home' && (
@@ -399,25 +336,22 @@ function AppContent() {
           user={user}
           onBack={() => setCurrentPage('home')}
           onViewAd={viewAd}
-          onEditAd={handleEditAd}
           onLogout={handleLogout}
           setCurrentPage={setCurrentPage}
           safeAreaTop={safeAreaTop}
         />
       )}
-      {currentPage === 'edit-ad' && editingAd && (
+      {currentPage === 'edit-ad' && (
         <EditAd 
-          ad={editingAd}
           onBack={() => {
             setCurrentPage('profile');
-            setEditingAd(null);
+            localStorage.removeItem('editing_ad');
           }}
           onUpdate={handleAdUpdated}
           safeAreaTop={safeAreaTop}
         />
       )}
       
-      {/* Общая нижняя навигация для всех страниц кроме деталей объявления и редактирования */}
       {showBottomNav && (
         <BottomNav 
           currentPage={currentPage} 
@@ -447,7 +381,6 @@ const spinnerStyle = {
   animation: 'spin 1s linear infinite'
 };
 
-// Добавляем стили для анимации
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
   @keyframes spin {

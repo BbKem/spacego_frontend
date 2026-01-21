@@ -1,7 +1,8 @@
 // frontend/src/components/EditAd.jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-function EditAd({ ad, onBack, onUpdate }) {
+function EditAd({ onBack, onUpdate }) {
+  const [ad, setAd] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -19,6 +20,7 @@ function EditAd({ ad, onBack, onUpdate }) {
   const [status, setStatus] = useState('');
   const [uploading, setUploading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
 
   const fileInputRef = useRef(null);
 
@@ -26,34 +28,56 @@ function EditAd({ ad, onBack, onUpdate }) {
     ? 'http://localhost:4000' 
     : 'https://spacego-backend.onrender.com';
 
-  // Инициализация формы данными объявления
+  // Загружаем данные объявления из localStorage
   useEffect(() => {
-    if (ad) {
-      // Основные поля
-      setFormData({
-        title: ad.title || '',
-        description: ad.description || '',
-        price: ad.price ? ad.price.toString() : '',
-        categoryId: ad.category_id || '',
-        condition: ad.condition || 'new',
-        location: ad.location || ''
-      });
+    const loadAdData = async () => {
+      try {
+        const savedAd = localStorage.getItem('editing_ad');
+        console.log('Saved ad from localStorage:', savedAd);
+        
+        if (savedAd) {
+          const adData = JSON.parse(savedAd);
+          console.log('Parsed ad data:', adData);
+          setAd(adData);
+          
+          // Основные поля
+          setFormData({
+            title: adData.title || '',
+            description: adData.description || '',
+            price: adData.price ? adData.price.toString() : '',
+            categoryId: adData.category_id || adData.categoryId || '',
+            condition: adData.condition || 'new',
+            location: adData.location || ''
+          });
 
-      // Детали недвижимости
-      if (ad.property_details) {
-        setPropertyDetails(ad.property_details);
+          // Детали недвижимости
+          if (adData.property_details) {
+            console.log('Property details:', adData.property_details);
+            setPropertyDetails(adData.property_details);
+          }
+
+          // Существующие фото
+          if (adData.photo_urls && adData.photo_urls.length > 0) {
+            console.log('Existing photos:', adData.photo_urls);
+            setExistingPhotos(adData.photo_urls.map((url, index) => ({
+              id: index,
+              url: url,
+              isExisting: true
+            })));
+          }
+        } else {
+          console.error('No ad found in localStorage');
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки данных объявления:', error);
+        setStatus('❌ Ошибка загрузки данных объявления');
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      // Существующие фото
-      if (ad.photo_urls && ad.photo_urls.length > 0) {
-        setExistingPhotos(ad.photo_urls.map((url, index) => ({
-          id: index,
-          url: url,
-          isExisting: true
-        })));
-      }
-    }
-
+    loadAdData();
+    
     // Загружаем категории
     const fetchCategories = async () => {
       try {
@@ -73,7 +97,7 @@ function EditAd({ ad, onBack, onUpdate }) {
     };
 
     fetchCategories();
-  }, [ad]);
+  }, []);
 
   // Обновляем подкатегории при выборе категории
   useEffect(() => {
@@ -105,10 +129,9 @@ function EditAd({ ad, onBack, onUpdate }) {
       'room_type', 'wall_material', 'sewage', 'heating_system', 'garage', 
       'outbuildings', 'bathhouse', 'gate_type', 'construction_material', 
       'security', 'bedrooms', 'guests', 'wifi', 'breakfast', 'transfer', 
-      'reception', 'cleaning', 'ac', 'development_type', 'developer', 
-      'project_name', 'delivery_date', 'contract_type', 'power', 
-      'loading_lift', 'metro', 'metro_distance', 'owner_type', 
-      'is_negotiable'
+      'reception', 'cleaning', 'ac', 'developer', 'project_name', 
+      'delivery_date', 'contract_type', 'power', 'loading_lift', 
+      'metro', 'metro_distance', 'owner_type', 'is_negotiable'
     ];
 
     if (propertyFields.includes(field)) {
@@ -124,7 +147,7 @@ function EditAd({ ad, onBack, onUpdate }) {
     
     const totalPhotos = existingPhotos.length + photos.length + files.length;
     if (totalPhotos > 10) {
-      setStatus(`❌ Максимум 10 фото. Уже выбрано ${existingPhotos.length + photos.length}, можно добавить ещё ${10 - (existingPhotos.length + photos.length)}`);
+      setStatus(`❌ Максимум 10 фото. Уже есть ${existingPhotos.length + photos.length}, можно добавить ещё ${10 - (existingPhotos.length + photos.length)}`);
       return;
     }
     
@@ -190,6 +213,10 @@ function EditAd({ ad, onBack, onUpdate }) {
     return errors;
   };
 
+  const getErrorStyle = (field) => {
+    return fieldErrors[field] ? { borderColor: '#ef4444', borderWidth: '2px' } : {};
+  };
+
   const handleSubmit = async () => {
     const errors = validateForm();
     setFieldErrors(errors);
@@ -226,6 +253,8 @@ function EditAd({ ad, onBack, onUpdate }) {
         formDataToSend.append('photos', photo.file);
       });
       
+      console.log('Updating ad with ID:', ad.id);
+      
       const res = await fetch(`${API_BASE}/api/ads/${ad.id}`, {
         method: 'PUT',
         headers: { 'telegram-init-data': initData },
@@ -233,6 +262,8 @@ function EditAd({ ad, onBack, onUpdate }) {
       });
       
       const data = await res.json();
+      console.log('Update response:', data);
+      
       if (res.ok) {
         setStatus('✅ Объявление успешно обновлено!');
         setTimeout(() => {
@@ -243,24 +274,19 @@ function EditAd({ ad, onBack, onUpdate }) {
         setStatus(`❌ ${data.error || 'Ошибка обновления'}`);
       }
     } catch (err) {
-      setStatus('❌ Ошибка сети');
       console.error('Ошибка обновления:', err);
+      setStatus('❌ Ошибка сети');
     } finally {
       setUploading(false);
     }
   };
 
-  const getErrorStyle = (field) => {
-    return fieldErrors[field] ? { borderColor: '#ef4444', borderWidth: '2px' } : {};
-  };
-
-  // Рендер полей недвижимости (аналогично CreateAd)
+  // Рендер полей недвижимости
   const renderRealEstateFields = () => {
     const selectedSubcategory = realEstateSubcats.find(cat => cat.id === parseInt(formData.categoryId));
     if (!selectedSubcategory) return null;
     const subcatName = selectedSubcategory.name;
-    
-    // Простая реализация - можно скопировать из CreateAd.jsx
+
     return (
       <div>
         <div style={inputGroupStyle}>
@@ -293,7 +319,7 @@ function EditAd({ ad, onBack, onUpdate }) {
           />
         </div>
         
-        {subcatName.includes('Квартиры') && (
+        {(subcatName.includes('Квартиры') || subcatName.includes('Комнаты')) && (
           <div style={inputGroupStyle}>
             <label style={labelStyle}>Количество комнат *</label>
             <input
@@ -311,6 +337,34 @@ function EditAd({ ad, onBack, onUpdate }) {
       </div>
     );
   };
+
+  // Если загружается - показываем индикатор
+  if (isLoading) {
+    return (
+      <div style={loadingPageStyle}>
+        <div style={spinnerStyle}></div>
+        <p style={loadingTextStyle}>Загрузка данных объявления...</p>
+      </div>
+    );
+  }
+
+  // Если нет данных объявления - показываем ошибку
+  if (!ad) {
+    return (
+      <div style={errorPageStyle}>
+        <div style={errorContentStyle}>
+          <span className="material-symbols-outlined" style={errorIconStyle}>
+            error
+          </span>
+          <h3 style={errorTitleStyle}>Объявление не найдено</h3>
+          <p style={errorTextStyle}>Не удалось загрузить данные для редактирования.</p>
+          <button onClick={onBack} style={errorButtonStyle}>
+            Вернуться назад
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const allPhotos = [...existingPhotos, ...photos];
   const hasRealEstateCategory = realEstateSubcats.some(cat => cat.id === parseInt(formData.categoryId));
@@ -520,7 +574,7 @@ function EditAd({ ad, onBack, onUpdate }) {
   );
 }
 
-// Стили (аналогично CreateAd)
+// Стили
 const pageStyle = { 
   backgroundColor: '#f6f6f8', 
   minHeight: '100vh', 
@@ -593,19 +647,6 @@ const photoTitleStyle = {
   margin: 0 
 };
 
-const photoSubtitleStyle = { 
-  fontSize: 14, 
-  color: '#6b7280', 
-  margin: 0, 
-  maxWidth: 300 
-};
-
-const photoHintStyle = { 
-  fontSize: 12, 
-  color: '#9ca3af', 
-  margin: 0 
-};
-
 const addPhotoButtonStyle = { 
   width: 48, 
   height: 48, 
@@ -617,6 +658,12 @@ const addPhotoButtonStyle = {
   justifyContent: 'center', 
   alignItems: 'center', 
   cursor: 'pointer' 
+};
+
+const photoHintStyle = { 
+  fontSize: 12, 
+  color: '#9ca3af', 
+  margin: 0 
 };
 
 const photosGridStyle = {
@@ -797,5 +844,59 @@ const statusStyle = (text) => ({
   textAlign: 'center', 
   marginTop: 16 
 });
+
+const loadingPageStyle = {
+  backgroundColor: '#f6f6f8',
+  minHeight: '100vh',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '16px'
+};
+
+const errorPageStyle = {
+  backgroundColor: '#f6f6f8',
+  minHeight: '100vh',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '16px'
+};
+
+const errorContentStyle = {
+  textAlign: 'center',
+  maxWidth: '300px'
+};
+
+const errorIconStyle = {
+  fontSize: 64,
+  color: '#e5e7eb',
+  marginBottom: '16px'
+};
+
+const errorTitleStyle = {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#0d121b',
+  marginBottom: '8px'
+};
+
+const errorTextStyle = {
+  fontSize: 14,
+  color: '#6b7280',
+  marginBottom: '24px'
+};
+
+const errorButtonStyle = {
+  padding: '12px 24px',
+  backgroundColor: '#46A8C1',
+  color: 'white',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer'
+};
 
 export default EditAd;

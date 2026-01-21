@@ -171,15 +171,14 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     console.log('Удалить объявление', adId);
   };
 
- // Редактировать объявление
+
 const editAd = (adId) => {
-  // Находим объявление
   const adToEdit = userAds.find(ad => ad.id === adId);
   if (adToEdit) {
+    // Сохраняем объявление в localStorage
+    localStorage.setItem('editing_ad', JSON.stringify(adToEdit));
     // Переходим на страницу редактирования
     setCurrentPage('edit-ad');
-    // Передаем объявление через localStorage или контекст
-    localStorage.setItem('editing_ad', JSON.stringify(adToEdit));
   }
   setShowMenuForAd(null);
 };
