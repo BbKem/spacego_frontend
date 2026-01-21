@@ -7,6 +7,7 @@ import CreateAd from './components/CreateAd'
 import Favorites from './components/Favorites'
 import Profile from './components/Profile'
 import BottomNav from './components/BottomNav'
+import EditAd from './components/EditAd'
 
 const AppCacheContext = createContext()
 
@@ -124,6 +125,24 @@ const AppCacheProvider = ({ children }) => {
     }
   }
 
+  const updateAdInCache = (updatedAd) => {
+    if (cache.ads) {
+      setCache(prev => ({
+        ...prev,
+        ads: prev.ads.map(ad => ad.id === updatedAd.id ? updatedAd : ad)
+      }))
+    }
+  }
+
+  const removeAdFromCache = (adId) => {
+    if (cache.ads) {
+      setCache(prev => ({
+        ...prev,
+        ads: prev.ads.filter(ad => ad.id !== adId)
+      }))
+    }
+  }
+
   const getSubcategories = async (parentId) => {
     if (cache.subcategories[parentId]) {
       return cache.subcategories[parentId];
@@ -151,6 +170,8 @@ const AppCacheProvider = ({ children }) => {
         ...cache,
         refreshData,
         addNewAd,
+        updateAdInCache,
+        removeAdFromCache,
         fetchRootCategories,
         getSubcategories
       }}
@@ -164,6 +185,7 @@ function AppContent() {
   const [user, setUser] = useState(null);
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedAd, setSelectedAd] = useState(null);
+  const [editingAd, setEditingAd] = useState(null);
   const [safeAreaTop, setSafeAreaTop] = useState(0);
 
   // ========== ДОБАВЛЕНО: ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP ==========
@@ -285,6 +307,7 @@ function AppContent() {
     setUser(null);
     setCurrentPage('home');
     setSelectedAd(null);
+    setEditingAd(null);
   };
 
   const viewAd = (ad) => {
@@ -295,6 +318,19 @@ function AppContent() {
   const handleAdCreated = (ad) => {
     console.log('Новое объявление создано:', ad);
     setCurrentPage('home');
+  };
+
+  // Обработчик редактирования объявления
+  const handleEditAd = (ad) => {
+    setEditingAd(ad);
+    setCurrentPage('edit-ad');
+  };
+
+  // Обработчик обновления объявления
+  const handleAdUpdated = (updatedAd) => {
+    console.log('Объявление обновлено:', updatedAd);
+    setCurrentPage('profile'); // Возвращаемся в профиль после успешного обновления
+    setEditingAd(null);
   };
 
   // Если нет пользователя - показываем TelegramInit
@@ -313,7 +349,7 @@ function AppContent() {
   }
 
   // Определяем, нужно ли показывать нижнюю навигацию
-  const showBottomNav = currentPage !== 'ad-detail';
+  const showBottomNav = currentPage !== 'ad-detail' && currentPage !== 'edit-ad';
 
   // Создаем стиль с безопасными отступами
   const safeAreaStyle = {
@@ -363,13 +399,25 @@ function AppContent() {
           user={user}
           onBack={() => setCurrentPage('home')}
           onViewAd={viewAd}
+          onEditAd={handleEditAd}
           onLogout={handleLogout}
           setCurrentPage={setCurrentPage}
           safeAreaTop={safeAreaTop}
         />
       )}
+      {currentPage === 'edit-ad' && editingAd && (
+        <EditAd 
+          ad={editingAd}
+          onBack={() => {
+            setCurrentPage('profile');
+            setEditingAd(null);
+          }}
+          onUpdate={handleAdUpdated}
+          safeAreaTop={safeAreaTop}
+        />
+      )}
       
-      {/* Общая нижняя навигация для всех страниц кроме деталей объявления */}
+      {/* Общая нижняя навигация для всех страниц кроме деталей объявления и редактирования */}
       {showBottomNav && (
         <BottomNav 
           currentPage={currentPage} 

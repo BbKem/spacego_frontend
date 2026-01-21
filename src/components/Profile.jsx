@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import AdCard from './AdCard';
 import SkeletonCard from './SkeletonCard';
+import EditAd from './EditAd';
 
 function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   const [activeTab, setActiveTab] = useState('active');
@@ -170,14 +171,18 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     console.log('Удалить объявление', adId);
   };
 
-  // Редактировать объявление
-  const editAd = (adId) => {
-    // Здесь будет переход на страницу редактирования
-    console.log('Редактировать объявление', adId);
-    // Для примера, откроем алерт
-    alert('Редактирование объявления - в разработке');
-    setShowMenuForAd(null);
-  };
+ // Редактировать объявление
+const editAd = (adId) => {
+  // Находим объявление
+  const adToEdit = userAds.find(ad => ad.id === adId);
+  if (adToEdit) {
+    // Переходим на страницу редактирования
+    setCurrentPage('edit-ad');
+    // Передаем объявление через localStorage или контекст
+    localStorage.setItem('editing_ad', JSON.stringify(adToEdit));
+  }
+  setShowMenuForAd(null);
+};
 
   const getAdsCountByStatus = () => {
     const active = userAds.filter(ad => !ad.is_archived).length;
