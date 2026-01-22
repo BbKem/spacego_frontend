@@ -1018,8 +1018,10 @@ const detailHeaderStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '16px',
+  padding: '0 16px',
   backgroundColor: 'white',
+  height: '95px', 
+  minHeight: '95px',
   borderBottom: '1px solid #eee'
 };
 

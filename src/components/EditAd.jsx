@@ -587,11 +587,12 @@ const headerStyle = {
   display: 'flex', 
   justifyContent: 'space-between', 
   alignItems: 'center', 
-  padding: '16px', 
+   padding: '0 16px',
   backgroundColor: 'white', 
   borderBottom: '1px solid #eee',
-  height: '80px',
-  minHeight: '80px'
+  height: '95px', 
+  minHeight: '95px', 
+  boxSizing: 'border-box',
 };
 
 const iconButtonStyle = { 

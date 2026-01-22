@@ -457,9 +457,12 @@ const headerStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '16px',
+ padding: '0 16px',
   backgroundColor: 'white',
-  borderBottom: '1px solid #eee'
+  borderBottom: '1px solid #eee',
+  height: '95px', 
+  minHeight: '95px', 
+  boxSizing: 'border-box', 
 };
 
 const backButtonStyle = {
