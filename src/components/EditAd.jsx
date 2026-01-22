@@ -590,7 +590,6 @@ const headerStyle = {
   padding: '16px', 
   backgroundColor: 'white', 
   borderBottom: '1px solid #eee',
-  paddingTop: 'calc(20px + env(safe-area-inset-top, 0))',
   height: '80px',
   minHeight: '80px'
 };

@@ -289,14 +289,15 @@ function AppContent() {
   // Определяем, нужно ли показывать нижнюю навигацию
   const showBottomNav = currentPage !== 'ad-detail' && currentPage !== 'edit-ad';
 
-  // Создаем стиль с безопасными отступами
-  const safeAreaStyle = {
-    minHeight: '100vh', 
-    backgroundColor: '#f6f6f8', 
-    fontFamily: "'Space Grotesk', sans-serif",
-    paddingBottom: showBottomNav ? '80px' : '0',
-    paddingTop: `${safeAreaTop}px`
-  };
+ const safeAreaStyle = {
+  minHeight: '100vh', 
+  backgroundColor: '#f6f6f8', 
+  fontFamily: "'Space Grotesk', sans-serif",
+  paddingBottom: showBottomNav ? '80px' : '0',
+  paddingTop: `${safeAreaTop}px`,
+  paddingLeft: 'env(safe-area-inset-left, 0px)',
+  paddingRight: 'env(safe-area-inset-right, 0px)',
+};
 
   return (
     <div style={safeAreaStyle}>
@@ -307,28 +308,24 @@ function AppContent() {
           onViewAd={viewAd}
           onCreateAd={() => setCurrentPage('create-ad')}
           setCurrentPage={setCurrentPage}
-          safeAreaTop={safeAreaTop}
         />
       )}
       {currentPage === 'ad-detail' && (
         <AdDetail 
           ad={selectedAd} 
           onBack={() => setCurrentPage('home')} 
-          safeAreaTop={safeAreaTop}
         />
       )}
       {currentPage === 'create-ad' && (
         <CreateAd 
           onBack={() => setCurrentPage('home')} 
           onAdCreated={handleAdCreated}
-          safeAreaTop={safeAreaTop}
         />
       )}
       {currentPage === 'favorites' && (
         <Favorites 
           onViewAd={viewAd} 
           onBack={() => setCurrentPage('home')}
-          safeAreaTop={safeAreaTop}
         />
       )}
       {currentPage === 'profile' && (
@@ -338,7 +335,6 @@ function AppContent() {
           onViewAd={viewAd}
           onLogout={handleLogout}
           setCurrentPage={setCurrentPage}
-          safeAreaTop={safeAreaTop}
         />
       )}
       {currentPage === 'edit-ad' && (
@@ -348,7 +344,6 @@ function AppContent() {
             localStorage.removeItem('editing_ad');
           }}
           onUpdate={handleAdUpdated}
-          safeAreaTop={safeAreaTop}
         />
       )}
       
@@ -356,7 +351,6 @@ function AppContent() {
         <BottomNav 
           currentPage={currentPage} 
           setCurrentPage={setCurrentPage} 
-          safeAreaTop={safeAreaTop}
         />
       )}
     </div>

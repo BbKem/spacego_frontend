@@ -446,7 +446,6 @@ const editAd = (adId) => {
   );
 }
 
-// Стили (добавляем новые стили для меню)
 const pageStyle = {
   backgroundColor: '#f6f6f8',
   minHeight: '100vh',
