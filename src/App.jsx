@@ -183,7 +183,7 @@ function AppContent() {
         
         if (isIOS) {
           const safeArea = tg.viewportStableHeight || tg.viewportHeight;
-          const additionalPadding = 40;
+          const additionalPadding = 70;
           setSafeAreaTop(additionalPadding);
         }
         
