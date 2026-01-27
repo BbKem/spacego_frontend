@@ -169,6 +169,8 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedAd, setSelectedAd] = useState(null);
   const [safeAreaTop, setSafeAreaTop] = useState(0);
+  const [viewingFromModeration, setViewingFromModeration] = useState(false);
+  const [viewingFromProfile, setViewingFromProfile] = useState(false);
 
   // ========== ДОБАВЛЕНО: ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP ==========
   useEffect(() => {
@@ -201,7 +203,7 @@ function AppContent() {
         tg.BackButton.show();
         tg.onEvent('backButtonClicked', () => {
           if (currentPage !== 'home') {
-            setCurrentPage('home');
+            handleBackButton();
           } else {
             tg.close();
           }
@@ -231,6 +233,29 @@ function AppContent() {
       };
     }
   }, [currentPage]);
+
+  // Обработка кнопки "Назад" в Telegram Web App
+  const handleBackButton = () => {
+    if (currentPage === 'ad-detail') {
+      if (viewingFromModeration) {
+        setCurrentPage('moderation');
+        setViewingFromModeration(false);
+      } else if (viewingFromProfile) {
+        setCurrentPage('profile');
+        setViewingFromProfile(false);
+      } else {
+        setCurrentPage('home');
+      }
+    } else if (currentPage === 'moderation' || currentPage === 'admin') {
+      setCurrentPage('profile');
+    } else if (currentPage === 'profile') {
+      setCurrentPage('home');
+    } else if (currentPage === 'create-ad' || currentPage === 'edit-ad') {
+      setCurrentPage('home');
+    } else if (currentPage === 'favorites') {
+      setCurrentPage('home');
+    }
+  };
 
   // Получаем роль пользователя при загрузке
   useEffect(() => {
@@ -290,10 +315,14 @@ function AppContent() {
     setUserRole('user');
     setCurrentPage('home');
     setSelectedAd(null);
+    setViewingFromModeration(false);
+    setViewingFromProfile(false);
   };
 
-  const viewAd = (ad) => {
+  const viewAd = (ad, options = {}) => {
     setSelectedAd(ad);
+    setViewingFromModeration(options.fromModeration || false);
+    setViewingFromProfile(options.fromProfile || false);
     setCurrentPage('ad-detail');
   };
 
@@ -330,6 +359,17 @@ function AppContent() {
                        currentPage !== 'moderation' &&
                        currentPage !== 'admin';
 
+  // Определяем, откуда возвращаться из просмотра объявления
+  const getBackDestination = () => {
+    if (viewingFromModeration) {
+      return 'moderation';
+    } else if (viewingFromProfile) {
+      return 'profile';
+    } else {
+      return 'home';
+    }
+  };
+
   const safeAreaStyle = {
     minHeight: '100vh', 
     backgroundColor: '#f6f6f8', 
@@ -339,6 +379,7 @@ function AppContent() {
     paddingLeft: 'env(safe-area-inset-left, 0px)',
     paddingRight: 'env(safe-area-inset-right, 0px)',
   };
+  
 
   return (
     <div style={safeAreaStyle}>
@@ -347,7 +388,7 @@ function AppContent() {
           user={user} 
           userRole={userRole}
           onLogout={handleLogout} 
-          onViewAd={viewAd}
+          onViewAd={(ad) => viewAd(ad)}
           onCreateAd={() => setCurrentPage('create-ad')}
           setCurrentPage={setCurrentPage}
         />
@@ -355,19 +396,19 @@ function AppContent() {
       {currentPage === 'ad-detail' && (
         <AdDetail 
           ad={selectedAd} 
-          onBack={() => setCurrentPage('home')} 
+          onBack={() => setCurrentPage(getBackDestination())} 
         />
       )}
       {currentPage === 'create-ad' && (
         <CreateAd 
           onBack={() => setCurrentPage('home')} 
           onAdCreated={handleAdCreated}
-          setCurrentPage={setCurrentPage}  // ← добавлено
+          setCurrentPage={setCurrentPage}
         />
       )}
       {currentPage === 'favorites' && (
         <Favorites 
-          onViewAd={viewAd} 
+          onViewAd={(ad) => viewAd(ad, { fromProfile: true })} 
           onBack={() => setCurrentPage('home')}
         />
       )}
@@ -376,7 +417,7 @@ function AppContent() {
           user={user}
           userRole={userRole}
           onBack={() => setCurrentPage('home')}
-          onViewAd={viewAd}
+          onViewAd={(ad) => viewAd(ad, { fromProfile: true })}
           onLogout={handleLogout}
           setCurrentPage={setCurrentPage}
         />
@@ -393,6 +434,7 @@ function AppContent() {
       {currentPage === 'moderation' && (
         <ModerationPanel 
           onBack={() => setCurrentPage('profile')}
+          onViewAd={(ad) => viewAd(ad, { fromModeration: true })}
         />
       )}
       {currentPage === 'admin' && (

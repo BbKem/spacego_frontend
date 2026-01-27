@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import AdCard from './AdCard';
 
-function ModerationPanel({ onBack }) {
+function ModerationPanel({ onBack, onViewAd }) {
   const [pendingAds, setPendingAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectingAdId, setRejectingAdId] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
@@ -17,7 +18,7 @@ function ModerationPanel({ onBack }) {
   }, []);
 
   const fetchPendingAds = async () => {
-    setLoading(true);
+    if (!isRefreshing) setLoading(true);
     try {
       const initData = localStorage.getItem('telegram_init_data');
       const response = await fetch(`${API_BASE}/api/admin/pending-ads`, {
@@ -36,10 +37,20 @@ function ModerationPanel({ onBack }) {
       console.error('Ошибка:', error);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    fetchPendingAds();
+  };
+
   const approveAd = async (adId) => {
+    if (!window.confirm('Вы уверены, что хотите одобрить это объявление?')) {
+      return;
+    }
+
     try {
       const initData = localStorage.getItem('telegram_init_data');
       const response = await fetch(`${API_BASE}/api/admin/ads/${adId}/approve`, {
@@ -52,17 +63,23 @@ function ModerationPanel({ onBack }) {
       
       if (response.ok) {
         setPendingAds(pendingAds.filter(ad => ad.id !== adId));
-        alert('Объявление одобрено');
+        alert('✅ Объявление одобрено и опубликовано');
+      } else {
+        alert('❌ Ошибка одобрения объявления');
       }
     } catch (error) {
       console.error('Ошибка:', error);
-      alert('Ошибка одобрения');
+      alert('❌ Ошибка сети');
     }
   };
 
   const rejectAd = async (adId, reason) => {
     if (!reason.trim()) {
       alert('Укажите причину отклонения');
+      return;
+    }
+
+    if (!window.confirm('Вы уверены, что хотите отклонить это объявление?')) {
       return;
     }
 
@@ -81,11 +98,31 @@ function ModerationPanel({ onBack }) {
         setPendingAds(pendingAds.filter(ad => ad.id !== adId));
         setRejectReason('');
         setRejectingAdId(null);
-        alert('Объявление отклонено');
+        alert('✅ Объявление отклонено');
+      } else {
+        alert('❌ Ошибка отклонения объявления');
       }
     } catch (error) {
       console.error('Ошибка:', error);
-      alert('Ошибка отклонения');
+      alert('❌ Ошибка сети');
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Недавно';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleViewAd = (ad) => {
+    if (onViewAd) {
+      onViewAd(ad);
     }
   };
 
@@ -97,7 +134,20 @@ function ModerationPanel({ onBack }) {
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <h2 style={titleStyle}>Модерация объявлений</h2>
-        <div style={{ width: 40 }}></div>
+        <button 
+          onClick={handleRefresh} 
+          style={refreshButtonStyle}
+          disabled={isRefreshing}
+        >
+          <span 
+            className="material-symbols-outlined"
+            style={{
+              animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
+            }}
+          >
+            refresh
+          </span>
+        </button>
       </div>
 
       {/* Content */}
@@ -105,21 +155,62 @@ function ModerationPanel({ onBack }) {
         {loading ? (
           <div style={loadingStyle}>
             <div style={spinnerStyle}></div>
-            <p>Загрузка...</p>
+            <p>Загрузка объявлений...</p>
           </div>
         ) : pendingAds.length > 0 ? (
           <div style={adsListStyle}>
+            <div style={statsStyle}>
+              <span>На проверке: <strong>{pendingAds.length}</strong> объявлений</span>
+            </div>
+            
             {pendingAds.map(ad => (
               <div key={ad.id} style={adItemStyle}>
-                <AdCard ad={ad} onClick={() => {}} />
-                
-                <div style={adInfoStyle}>
-                  <p><strong>Автор:</strong> {ad.user_first_name} (@{ad.user_username})</p>
-                  <p><strong>Категория:</strong> {ad.category_name}</p>
-                  <p><strong>Создано:</strong> {new Date(ad.created_at).toLocaleDateString('ru-RU')}</p>
+                {/* Объявление с возможностью просмотра */}
+                <div 
+                  style={adCardWrapperStyle}
+                  onClick={() => handleViewAd(ad)}
+                >
+                  <AdCard ad={ad} />
                 </div>
                 
+                {/* Информация об авторе */}
+                <div style={adInfoStyle}>
+                  <div style={authorInfoStyle}>
+                    <div style={authorAvatarStyle}>
+                      {ad.user_first_name?.[0]?.toUpperCase() || 'П'}
+                    </div>
+                    <div>
+                      <div style={authorNameStyle}>
+                        <strong>{ad.user_first_name || 'Пользователь'}</strong>
+                        {ad.user_username && <span style={usernameStyle}> @{ad.user_username}</span>}
+                      </div>
+                      <div style={authorDetailsStyle}>
+                        <span>ID: {ad.user_telegram_id}</span>
+                        <span style={{margin: '0 8px'}}>•</span>
+                        <span>Создано: {formatDate(ad.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div style={adDetailsStyle}>
+                    <p><strong>Категория:</strong> {ad.category_name || 'Не указана'}</p>
+                    <p><strong>Цена:</strong> {ad.price ? `${parseInt(ad.price).toLocaleString('ru-RU')} ₽` : 'Не указана'}</p>
+                    <p><strong>Местоположение:</strong> {ad.location || 'Не указано'}</p>
+                  </div>
+                </div>
+                
+                {/* Кнопки модерации */}
                 <div style={moderationActionsStyle}>
+                  {/* Кнопка просмотра */}
+                  <button 
+                    style={viewButtonStyle}
+                    onClick={() => handleViewAd(ad)}
+                  >
+                    <span className="material-symbols-outlined">visibility</span>
+                    Просмотреть
+                  </button>
+                  
+                  {/* Кнопка одобрения */}
                   <button 
                     style={approveButtonStyle}
                     onClick={() => approveAd(ad.id)}
@@ -128,14 +219,16 @@ function ModerationPanel({ onBack }) {
                     Одобрить
                   </button>
                   
+                  {/* Кнопка отклонения */}
                   {rejectingAdId === ad.id ? (
                     <div style={rejectFormStyle}>
                       <textarea
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value)}
-                        placeholder="Причина отклонения..."
+                        placeholder="Укажите причину отклонения объявления..."
                         style={rejectTextareaStyle}
                         rows={3}
+                        maxLength={500}
                       />
                       <div style={rejectFormButtonsStyle}>
                         <button 
@@ -150,6 +243,7 @@ function ModerationPanel({ onBack }) {
                         <button 
                           style={rejectConfirmButtonStyle}
                           onClick={() => rejectAd(ad.id, rejectReason)}
+                          disabled={!rejectReason.trim()}
                         >
                           Отклонить
                         </button>
@@ -174,7 +268,14 @@ function ModerationPanel({ onBack }) {
               check_circle
             </span>
             <h3 style={emptyTitleStyle}>Нет объявлений на модерации</h3>
-            <p style={emptyTextStyle}>Все объявления проверены</p>
+            <p style={emptyTextStyle}>Все объявления проверены и обработаны</p>
+            <button 
+              style={refreshEmptyButtonStyle}
+              onClick={handleRefresh}
+            >
+              <span className="material-symbols-outlined" style={{marginRight: 8}}>refresh</span>
+              Обновить
+            </button>
           </div>
         )}
       </div>
@@ -221,6 +322,20 @@ const titleStyle = {
   margin: 0
 };
 
+const refreshButtonStyle = {
+  width: 40,
+  height: 40,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: '#46A8C1',
+  borderRadius: '20px',
+  transition: 'background-color 0.2s ease'
+};
+
 const contentStyle = {
   flex: 1,
   padding: '16px',
@@ -250,6 +365,15 @@ const adsListStyle = {
   gap: '16px'
 };
 
+const statsStyle = {
+  backgroundColor: 'white',
+  padding: '12px 16px',
+  borderRadius: '8px',
+  fontSize: '14px',
+  color: '#0d121b',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+};
+
 const adItemStyle = {
   backgroundColor: 'white',
   borderRadius: '12px',
@@ -257,18 +381,89 @@ const adItemStyle = {
   boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
 };
 
+const adCardWrapperStyle = {
+  cursor: 'pointer',
+  transition: 'transform 0.2s ease',
+  borderRadius: '8px',
+  overflow: 'hidden',
+  marginBottom: '12px'
+};
+
 const adInfoStyle = {
-  marginTop: '12px',
   padding: '12px',
   backgroundColor: '#f9f9f9',
   borderRadius: '8px',
   fontSize: '14px'
 };
 
+const authorInfoStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  marginBottom: '12px'
+};
+
+const authorAvatarStyle = {
+  width: 40,
+  height: 40,
+  borderRadius: '20px',
+  backgroundColor: '#46A8C1',
+  color: 'white',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  fontWeight: 'bold',
+  fontSize: '16px',
+  flexShrink: 0
+};
+
+const authorNameStyle = {
+  fontSize: '14px',
+  color: '#0d121b',
+  marginBottom: '4px'
+};
+
+const usernameStyle = {
+  color: '#46A8C1',
+  fontSize: '13px',
+  marginLeft: '4px'
+};
+
+const authorDetailsStyle = {
+  fontSize: '12px',
+  color: '#6b7280',
+  display: 'flex',
+  alignItems: 'center'
+};
+
+const adDetailsStyle = {
+  marginTop: '12px',
+  paddingTop: '12px',
+  borderTop: '1px solid #e5e7eb'
+};
+
 const moderationActionsStyle = {
   display: 'flex',
   gap: '12px',
-  marginTop: '16px'
+  marginTop: '16px',
+  flexWrap: 'wrap'
+};
+
+const viewButtonStyle = {
+  flex: 1,
+  padding: '12px',
+  backgroundColor: '#3b82f6',
+  color: 'white',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: '14px',
+  fontWeight: '500',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '8px',
+  minWidth: '140px'
 };
 
 const approveButtonStyle = {
@@ -284,7 +479,8 @@ const approveButtonStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '8px'
+  gap: '8px',
+  minWidth: '140px'
 };
 
 const rejectButtonStyle = {
@@ -300,14 +496,16 @@ const rejectButtonStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '8px'
+  gap: '8px',
+  minWidth: '140px'
 };
 
 const rejectFormStyle = {
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  gap: '8px'
+  gap: '8px',
+  minWidth: '300px'
 };
 
 const rejectTextareaStyle = {
@@ -316,7 +514,10 @@ const rejectTextareaStyle = {
   border: '1px solid #e5e7eb',
   borderRadius: '6px',
   fontSize: '14px',
-  resize: 'vertical'
+  resize: 'vertical',
+  fontFamily: 'inherit',
+  outline: 'none',
+  transition: 'border-color 0.2s ease'
 };
 
 const rejectFormButtonsStyle = {
@@ -326,24 +527,29 @@ const rejectFormButtonsStyle = {
 
 const cancelButtonStyle = {
   flex: 1,
-  padding: '8px',
+  padding: '10px',
   backgroundColor: '#f3f4f6',
   color: '#374151',
   border: 'none',
   borderRadius: '6px',
   fontSize: '14px',
-  cursor: 'pointer'
+  fontWeight: '500',
+  cursor: 'pointer',
+  transition: 'background-color 0.2s ease'
 };
 
 const rejectConfirmButtonStyle = {
   flex: 1,
-  padding: '8px',
+  padding: '10px',
   backgroundColor: '#ef4444',
   color: 'white',
   border: 'none',
   borderRadius: '6px',
   fontSize: '14px',
-  cursor: 'pointer'
+  fontWeight: '500',
+  cursor: 'pointer',
+  transition: 'background-color 0.2s ease',
+  opacity: 1
 };
 
 const emptyStateStyle = {
@@ -371,7 +577,22 @@ const emptyTitleStyle = {
 const emptyTextStyle = {
   fontSize: 14,
   color: '#6b7280',
-  maxWidth: '300px'
+  maxWidth: '300px',
+  marginBottom: '24px'
+};
+
+const refreshEmptyButtonStyle = {
+  padding: '12px 24px',
+  backgroundColor: '#46A8C1',
+  color: 'white',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: '14px',
+  fontWeight: '500',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
 };
 
 const styleSheet = document.createElement('style');
@@ -379,6 +600,10 @@ styleSheet.textContent = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+  }
+  
+  *:hover {
+    transition: all 0.2s ease;
   }
 `;
 if (!document.head.querySelector('style[data-moderation-spinner]')) {

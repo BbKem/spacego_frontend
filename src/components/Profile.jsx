@@ -121,26 +121,31 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   };
 
   const getCurrentAds = () => {
-  switch (activeTab) {
-    case 'active': 
-      return userAds.filter(ad => !ad.is_archived && ad.status !== 'rejected');
-    case 'archived': 
-      return userAds.filter(ad => ad.is_archived === true);
-    case 'favorites': 
-      return favorites;
-    case 'pending':
-      return userAds.filter(ad => ad.status === 'pending');
-    default: 
-      return [];
-  }
-};
+    switch (activeTab) {
+      case 'active': 
+        // Активные = неархивированные И не отклонённые
+        return userAds.filter(ad => !ad.is_archived && ad.status !== 'rejected');
+      case 'archived': 
+        return userAds.filter(ad => ad.is_archived === true);
+      case 'favorites': 
+        return favorites;
+      case 'pending':
+        return userAds.filter(ad => ad.status === 'pending');
+      default: 
+        return [];
+    }
+  };
 
   const getCurrentLoading = () => {
     switch (activeTab) {
       case 'active': 
-      case 'archived': return isLoading;
-      case 'favorites': return isFavoritesLoading;
-      default: return false;
+      case 'archived': 
+      case 'pending': // Добавили pending
+        return isLoading;
+      case 'favorites': 
+        return isFavoritesLoading;
+      default: 
+        return false;
     }
   };
 
@@ -162,6 +167,7 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
         ));
         setShowMenuForAd(null);
         setShowDeleteConfirm(null);
+        alert('Объявление перемещено в архив');
       }
     } catch (error) {
       console.error('Ошибка архивирования объявления:', error);
@@ -186,6 +192,7 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
           ad.id === adId ? { ...ad, is_archived: false } : ad
         ));
         setShowMenuForAd(null);
+        alert('Объявление восстановлено');
       }
     } catch (error) {
       console.error('Ошибка восстановления объявления:', error);
@@ -230,20 +237,26 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   };
 
   const getAdsCountByStatus = () => {
-  const active = userAds.filter(ad => !ad.is_archived && ad.status === 'approved').length;
-  const pending = userAds.filter(ad => ad.status === 'pending').length;
-  const archived = userAds.filter(ad => ad.is_archived === true).length;
-  return { active, pending, archived };
-};
+    // Активные = неархивированные И не отклонённые
+    const active = userAds.filter(ad => !ad.is_archived && ad.status !== 'rejected').length;
+    const pending = userAds.filter(ad => ad.status === 'pending').length;
+    const archived = userAds.filter(ad => ad.is_archived === true).length;
+    return { active, pending, archived };
+  };
 
   const getPendingCount = () => {
-  return userAds.filter(ad => ad.status === 'pending').length;
-};
+    return userAds.filter(ad => ad.status === 'pending').length;
+  };
 
   const counts = getAdsCountByStatus();
 
   // Проверяем, является ли пользователь модератором или админом
   const isModeratorOrAdmin = userRole === 'moderator' || userRole === 'admin';
+
+  // Обработчик клика по объявлению для перехода к деталям
+  const handleAdClick = (ad) => {
+    onViewAd(ad);
+  };
 
   return (
     <div style={pageStyle}>
@@ -296,210 +309,230 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
 
       {/* Кнопка панели модератора (для модераторов и админов) */}
       {isModeratorOrAdmin && (
-        <div style={{ padding: '0 16px 16px' }}>
-          <button 
-            style={moderationButtonStyle}
-            onClick={() => setCurrentPage('moderation')}
-          >
-            <span className="material-symbols-outlined" style={{ marginRight: 8 }}>admin_panel_settings</span>
-            Панель модератора
-          </button>
-        </div>
+        <>
+          <div style={{ padding: '0 16px 8px' }}>
+            <button 
+              style={moderationButtonStyle}
+              onClick={() => setCurrentPage('moderation')}
+            >
+              <span className="material-symbols-outlined" style={{ marginRight: 8 }}>admin_panel_settings</span>
+              Панель модератора
+            </button>
+          </div>
+          
+          {/* Кнопка панели администратора (только для админов) */}
+          {userRole === 'admin' && (
+            <div style={{ padding: '0 16px 16px' }}>
+              <button 
+                style={adminButtonStyle}
+                onClick={() => setCurrentPage('admin')}
+              >
+                <span className="material-symbols-outlined" style={{ marginRight: 8 }}>supervisor_account</span>
+                Панель администратора
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Stats */}
       <div style={statsContainerStyle}>
-  <div style={statItemStyle}>
-    <div style={statNumberStyle}>{counts.active}</div>
-    <div style={statLabelStyle}>Активные</div>
-  </div>
-  <div style={statItemStyle}>
-    <div style={statNumberStyle}>{counts.pending}</div>
-    <div style={statLabelStyle}>На проверке</div>
-  </div>
-  <div style={statItemStyle}>
-    <div style={statNumberStyle}>{counts.archived}</div>
-    <div style={statLabelStyle}>Архив</div>
-  </div>
-  <div style={statItemStyle}>
-    <div style={statNumberStyle}>{favorites.length}</div>
-    <div style={statLabelStyle}>Избранное</div>
-  </div>
-</div>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{counts.active}</div>
+          <div style={statLabelStyle}>Активные</div>
+        </div>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{counts.pending}</div>
+          <div style={statLabelStyle}>На проверке</div>
+        </div>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{counts.archived}</div>
+          <div style={statLabelStyle}>Архив</div>
+        </div>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{favorites.length}</div>
+          <div style={statLabelStyle}>Избранное</div>
+        </div>
+      </div>
 
       {/* Tabs */}
-     <div style={tabsContainerStyle}>
-  <button
-    style={activeTab === 'active' ? tabActiveStyle : tabStyle}
-    onClick={() => setActiveTab('active')}
-  >
-    Активные
-  </button>
-  <button
-    style={activeTab === 'pending' ? tabActiveStyle : tabStyle}
-    onClick={() => setActiveTab('pending')}
-  >
-    На проверке
-    {getPendingCount() > 0 && (
-      <span style={badgeStyle}>{getPendingCount()}</span>
-    )}
-  </button>
-  <button
-    style={activeTab === 'archived' ? tabActiveStyle : tabStyle}
-    onClick={() => setActiveTab('archived')}
-  >
-    Архив
-  </button>
-  <button
-    style={activeTab === 'favorites' ? tabActiveStyle : tabStyle}
-    onClick={() => setActiveTab('favorites')}
-  >
-    Избранное
-  </button>
-</div>
+      <div style={tabsContainerStyle}>
+        <button
+          style={activeTab === 'active' ? tabActiveStyle : tabStyle}
+          onClick={() => setActiveTab('active')}
+        >
+          Активные
+        </button>
+        <button
+          style={activeTab === 'pending' ? tabActiveStyle : tabStyle}
+          onClick={() => setActiveTab('pending')}
+        >
+          На проверке
+          {getPendingCount() > 0 && (
+            <span style={badgeStyle}>{getPendingCount()}</span>
+          )}
+        </button>
+        <button
+          style={activeTab === 'archived' ? tabActiveStyle : tabStyle}
+          onClick={() => setActiveTab('archived')}
+        >
+          Архив
+        </button>
+        <button
+          style={activeTab === 'favorites' ? tabActiveStyle : tabStyle}
+          onClick={() => setActiveTab('favorites')}
+        >
+          Избранное
+        </button>
+      </div>
 
       {/* Ads Grid */}
       <div style={contentStyle}>
-  {getCurrentLoading() ? (
-    <div style={gridStyle}>
-      {Array.from({ length: 4 }).map((_, index) => (
-        <SkeletonCard key={index} />
-      ))}
-    </div>
-  ) : getCurrentAds().length > 0 ? (
-    <div style={gridStyle}>
-      {getCurrentAds().map(ad => (
-        <div key={ad.id} style={adCardContainerStyle}>
-          <AdCard ad={ad} onClick={() => onViewAd(ad)} />
-          
-          {/* Бейдж статуса */}
-          {ad.status === 'pending' && (
-            <div style={statusBadgeStyle}>
-              <span style={{fontSize: 10}}>⏳</span> На проверке
-            </div>
-          )}
-          
-          {ad.status === 'rejected' && (
-            <div style={rejectedBadgeStyle}>
-              <span style={{fontSize: 10}}>❌</span> Отклонено
-            </div>
-          )}
-          
-          {/* Меню управления для активных объявлений */}
-          {activeTab === 'active' && (
-            <>
-              <button 
-                style={menuButtonStyle}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenuForAd(showMenuForAd === ad.id ? null : ad.id);
-                }}
-              >
-                <span className="material-symbols-outlined">more_vert</span>
-              </button>
-              
-              {showMenuForAd === ad.id && (
-                <div style={menuDropdownStyle}>
-                  <button 
-                    style={menuItemStyle}
-                    onClick={() => editAd(ad.id)}
-                  >
-                    <span className="material-symbols-outlined" style={menuIconStyle}>edit</span>
-                    Редактировать
-                  </button>
-                  <button 
-                    style={menuItemStyle}
-                    onClick={() => {
-                      setShowDeleteConfirm(ad.id);
-                      setShowMenuForAd(null);
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#ef4444'}}>archive</span>
-                    <span style={{color: '#ef4444'}}>В архив</span>
-                  </button>
+        {getCurrentLoading() ? (
+          <div style={gridStyle}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <SkeletonCard key={index} />
+            ))}
+          </div>
+        ) : getCurrentAds().length > 0 ? (
+          <div style={gridStyle}>
+            {getCurrentAds().map(ad => (
+              <div key={ad.id} style={adCardContainerStyle}>
+                <div onClick={() => handleAdClick(ad)} style={{ cursor: 'pointer' }}>
+                  <AdCard ad={ad} />
                 </div>
-              )}
-            </>
-          )}
-          
-          {/* Кнопки для архивных объявлений */}
-          {activeTab === 'archived' && (
-            <>
-              <button 
-                style={menuButtonStyle}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMenuForAd(showMenuForAd === ad.id ? null : ad.id);
-                }}
-              >
-                <span className="material-symbols-outlined">more_vert</span>
-              </button>
-              
-              {showMenuForAd === ad.id && (
-                <div style={menuDropdownStyle}>
-                  <button 
-                    style={menuItemStyle}
-                    onClick={() => restoreAd(ad.id)}
-                  >
-                    <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#10b981'}}>unarchive</span>
-                    <span style={{color: '#10b981'}}>Восстановить</span>
-                  </button>
-                  <button 
-                    style={menuItemStyle}
-                    onClick={() => {
-                      if (window.confirm('Вы уверены, что хотите полностью удалить это объявление?')) {
-                        deleteAd(ad.id);
-                      }
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#ef4444'}}>delete</span>
-                    <span style={{color: '#ef4444'}}>Удалить</span>
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-          
-          {/* Подтверждение удаления/архивирования */}
-          {showDeleteConfirm === ad.id && (
-            <div style={confirmOverlayStyle}>
-              <div style={confirmModalStyle}>
-                <h3 style={confirmTitleStyle}>Переместить в архив?</h3>
-                <p style={confirmTextStyle}>Объявление будет скрыто из поиска, но останется в вашем архиве.</p>
-                <div style={confirmButtonsStyle}>
-                  <button 
-                    style={confirmCancelStyle}
-                    onClick={() => setShowDeleteConfirm(null)}
-                  >
-                    Отмена
-                  </button>
-                  <button 
-                    style={confirmDeleteStyle}
-                    onClick={() => archiveAd(ad.id)}
-                  >
-                    В архив
-                  </button>
-                </div>
+                
+                {/* Бейдж статуса */}
+                {ad.status === 'pending' && (
+                  <div style={statusBadgeStyle}>
+                    <span style={{fontSize: 10}}>⏳</span> На проверке
+                  </div>
+                )}
+                
+                {ad.status === 'rejected' && (
+                  <div style={rejectedBadgeStyle}>
+                    <span style={{fontSize: 10}}>❌</span> Отклонено
+                  </div>
+                )}
+                
+                {/* Меню управления для активных объявлений */}
+                {activeTab === 'active' && (
+                  <>
+                    <button 
+                      style={menuButtonStyle}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenuForAd(showMenuForAd === ad.id ? null : ad.id);
+                      }}
+                    >
+                      <span className="material-symbols-outlined">more_vert</span>
+                    </button>
+                    
+                    {showMenuForAd === ad.id && (
+                      <div style={menuDropdownStyle}>
+                        <button 
+                          style={menuItemStyle}
+                          onClick={() => editAd(ad.id)}
+                        >
+                          <span className="material-symbols-outlined" style={menuIconStyle}>edit</span>
+                          Редактировать
+                        </button>
+                        <button 
+                          style={menuItemStyle}
+                          onClick={() => {
+                            setShowDeleteConfirm(ad.id);
+                            setShowMenuForAd(null);
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#ef4444'}}>archive</span>
+                          <span style={{color: '#ef4444'}}>В архив</span>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {/* Кнопки для архивных объявлений */}
+                {activeTab === 'archived' && (
+                  <>
+                    <button 
+                      style={menuButtonStyle}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenuForAd(showMenuForAd === ad.id ? null : ad.id);
+                      }}
+                    >
+                      <span className="material-symbols-outlined">more_vert</span>
+                    </button>
+                    
+                    {showMenuForAd === ad.id && (
+                      <div style={menuDropdownStyle}>
+                        <button 
+                          style={menuItemStyle}
+                          onClick={() => restoreAd(ad.id)}
+                        >
+                          <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#10b981'}}>unarchive</span>
+                          <span style={{color: '#10b981'}}>Восстановить</span>
+                        </button>
+                        <button 
+                          style={menuItemStyle}
+                          onClick={() => {
+                            if (window.confirm('Вы уверены, что хотите полностью удалить это объявление?')) {
+                              deleteAd(ad.id);
+                            }
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#ef4444'}}>delete</span>
+                          <span style={{color: '#ef4444'}}>Удалить</span>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {/* Подтверждение удаления/архивирования */}
+                {showDeleteConfirm === ad.id && (
+                  <div style={confirmOverlayStyle}>
+                    <div style={confirmModalStyle}>
+                      <h3 style={confirmTitleStyle}>Переместить в архив?</h3>
+                      <p style={confirmTextStyle}>Объявление будет скрыто из поиска, но останется в вашем архиве.</p>
+                      <div style={confirmButtonsStyle}>
+                        <button 
+                          style={confirmCancelStyle}
+                          onClick={() => setShowDeleteConfirm(null)}
+                        >
+                          Отмена
+                        </button>
+                        <button 
+                          style={confirmDeleteStyle}
+                          onClick={() => archiveAd(ad.id)}
+                        >
+                          В архив
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  ) : (
+            ))}
+          </div>
+        ) : (
           <div style={emptyStateStyle}>
             <span className="material-symbols-outlined" style={emptyIconStyle}>
               {activeTab === 'active' ? 'sell' : 
+               activeTab === 'pending' ? 'hourglass_empty' :
                activeTab === 'archived' ? 'archive' : 
                'favorite'}
             </span>
             <h3 style={emptyTitleStyle}>
               {activeTab === 'active' ? 'Нет активных объявлений' : 
+               activeTab === 'pending' ? 'Нет объявлений на проверке' :
                activeTab === 'archived' ? 'Архив пуст' : 
                'Нет избранных объявлений'}
             </h3>
             <p style={emptyTextStyle}>
               {activeTab === 'active' ? 'Создайте первое объявление!' : 
+               activeTab === 'pending' ? 'Здесь будут ваши объявления, ожидающие проверки' :
                activeTab === 'archived' ? 'Здесь будут ваши архивные объявления' : 
                'Добавляйте объявления в избранное'}
             </p>
@@ -631,6 +664,22 @@ const moderationButtonStyle = {
   width: '100%',
   padding: '12px',
   backgroundColor: '#8b5cf6',
+  color: 'white',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginBottom: '8px'
+};
+
+const adminButtonStyle = {
+  width: '100%',
+  padding: '12px',
+  backgroundColor: '#dc2626',
   color: 'white',
   border: 'none',
   borderRadius: '8px',
