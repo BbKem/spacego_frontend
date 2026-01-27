@@ -12,6 +12,7 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   const [isFavoritesLoading, setIsFavoritesLoading] = useState(false);
   const [showMenuForAd, setShowMenuForAd] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [userRole, setUserRole] = useState('user');
 
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
@@ -20,6 +21,7 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   useEffect(() => {
     fetchUserAds();
     fetchFavorites();
+    fetchUserRole();
   }, []);
 
   const fetchUserAds = async () => {
@@ -70,6 +72,26 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
       console.error('Ошибка загрузки избранного:', error);
     } finally {
       setIsFavoritesLoading(false);
+    }
+  };
+
+  const fetchUserRole = async () => {
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      if (!initData) return;
+
+      const response = await fetch(`${API_BASE}/api/user`, {
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserRole(data.user?.role || 'user');
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки роли пользователя:', error);
     }
   };
 
@@ -165,66 +187,52 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     }
   };
 
-const deleteAd = async (adId) => {
-  if (window.confirm('Вы уверены, что хотите полностью удалить это объявление? Это действие нельзя отменить.')) {
-    try {
-      const initData = localStorage.getItem('telegram_init_data');
-      const response = await fetch(`${API_BASE}/api/ads/${adId}`, {
-        method: 'DELETE',
-        headers: {
-          'telegram-init-data': initData,
-          'Content-Type': 'application/json'
+  const deleteAd = async (adId) => {
+    if (window.confirm('Вы уверены, что хотите полностью удалить это объявление? Это действие нельзя отменить.')) {
+      try {
+        const initData = localStorage.getItem('telegram_init_data');
+        const response = await fetch(`${API_BASE}/api/ads/${adId}`, {
+          method: 'DELETE',
+          headers: {
+            'telegram-init-data': initData,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          setUserAds(prev => prev.filter(ad => ad.id !== adId));
+          alert('Объявление удалено');
+        } else {
+          alert('Ошибка удаления');
         }
-      });
-      
-      if (response.ok) {
-        setUserAds(prev => prev.filter(ad => ad.id !== adId));
-        alert('Объявление удалено');
-      } else {
+      } catch (error) {
+        console.error('Ошибка удаления объявления:', error);
         alert('Ошибка удаления');
       }
-    } catch (error) {
-      console.error('Ошибка удаления объявления:', error);
-      alert('Ошибка удаления');
     }
-  }
-};
+  };
 
-// И обновите меню для архивных объявлений:
-{activeTab === 'archived' && (
-  <button 
-    style={menuItemStyle}
-    onClick={() => {
-      if (window.confirm('Удалить объявление навсегда?')) {
-        deleteAd(ad.id);
-      }
-    }}
-  >
-    <span className="material-symbols-outlined" style={{...menuIconStyle, color: '#ef4444'}}>delete</span>
-    <span style={{color: '#ef4444'}}>Удалить навсегда</span>
-  </button>
-)}
-
-
-const editAd = (adId) => {
-  const adToEdit = userAds.find(ad => ad.id === adId);
-  if (adToEdit) {
-    // Сохраняем объявление в localStorage
-    localStorage.setItem('editing_ad', JSON.stringify(adToEdit));
-    // Переходим на страницу редактирования
-    setCurrentPage('edit-ad');
-  }
-  setShowMenuForAd(null);
-};
-
+  const editAd = (adId) => {
+    const adToEdit = userAds.find(ad => ad.id === adId);
+    if (adToEdit) {
+      // Сохраняем объявление в localStorage
+      localStorage.setItem('editing_ad', JSON.stringify(adToEdit));
+      // Переходим на страницу редактирования
+      setCurrentPage('edit-ad');
+    }
+    setShowMenuForAd(null);
+  };
 
   const getAdsCountByStatus = () => {
     const active = userAds.filter(ad => !ad.is_archived).length;
-    const archived = userAds.filter(ad => ad.is_archived).length;
+    const archived = userAds.filter(ad => ad.is_archived === true).length;
     return { active, archived };
   };
 
   const counts = getAdsCountByStatus();
+
+  // Проверяем, является ли пользователь модератором или админом
+  const isModeratorOrAdmin = userRole === 'moderator' || userRole === 'admin';
 
   return (
     <div style={pageStyle}>
@@ -250,7 +258,22 @@ const editAd = (adId) => {
         </div>
         
         <div style={profileInfoStyle}>
-          <h3 style={userNameStyle}>{getName()}</h3>
+          <h3 style={userNameStyle}>
+            {getName()}
+            {userRole !== 'user' && (
+              <span style={{
+                fontSize: 12,
+                backgroundColor: userRole === 'admin' ? '#dc2626' : '#8b5cf6',
+                color: 'white',
+                padding: '2px 8px',
+                borderRadius: 10,
+                marginLeft: 8,
+                fontWeight: 'normal'
+              }}>
+                {userRole === 'admin' ? 'Админ' : 'Модератор'}
+              </span>
+            )}
+          </h3>
           {user.username && (
             <p style={usernameStyle}>@{user.username}</p>
           )}
@@ -259,6 +282,19 @@ const editAd = (adId) => {
           </p>
         </div>
       </div>
+
+      {/* Кнопка панели модератора (для модераторов и админов) */}
+      {isModeratorOrAdmin && (
+        <div style={{ padding: '0 16px 16px' }}>
+          <button 
+            style={moderationButtonStyle}
+            onClick={() => setCurrentPage('moderation')}
+          >
+            <span className="material-symbols-outlined" style={{ marginRight: 8 }}>admin_panel_settings</span>
+            Панель модератора
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div style={statsContainerStyle}>
@@ -442,10 +478,22 @@ const editAd = (adId) => {
           </div>
         )}
       </div>
+
+      {/* Кнопка выхода */}
+      <div style={logoutContainerStyle}>
+        <button 
+          style={logoutButtonStyle}
+          onClick={onLogout}
+        >
+          <span className="material-symbols-outlined" style={{marginRight: 8}}>logout</span>
+          Выйти
+        </button>
+      </div>
     </div>
   );
 }
 
+// Стили
 const pageStyle = {
   backgroundColor: '#f6f6f8',
   minHeight: '100vh',
@@ -457,7 +505,7 @@ const headerStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
- padding: '0 16px',
+  padding: '0 16px',
   backgroundColor: 'white',
   borderBottom: '1px solid #eee',
   height: '95px', 
@@ -525,7 +573,9 @@ const userNameStyle = {
   fontSize: 20,
   fontWeight: 'bold',
   color: '#0d121b',
-  margin: '0 0 4px 0'
+  margin: '0 0 4px 0',
+  display: 'flex',
+  alignItems: 'center'
 };
 
 const usernameStyle = {
@@ -538,6 +588,22 @@ const registrationDateStyle = {
   fontSize: 14,
   color: '#6b7280',
   margin: 0
+};
+
+const moderationButtonStyle = {
+  width: '100%',
+  padding: '12px',
+  backgroundColor: '#8b5cf6',
+  color: 'white',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginBottom: '12px'
 };
 
 const statsContainerStyle = {

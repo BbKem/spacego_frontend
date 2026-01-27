@@ -8,6 +8,7 @@ import Favorites from './components/Favorites'
 import Profile from './components/Profile'
 import BottomNav from './components/BottomNav'
 import EditAd from './components/EditAd'
+import ModerationPanel from './components/ModerationPanel'
 
 const AppCacheContext = createContext()
 
@@ -163,6 +164,7 @@ const AppCacheProvider = ({ children }) => {
 
 function AppContent() {
   const [user, setUser] = useState(null);
+  const [userRole, setUserRole] = useState('user');
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedAd, setSelectedAd] = useState(null);
   const [safeAreaTop, setSafeAreaTop] = useState(0);
@@ -229,21 +231,54 @@ function AppContent() {
     }
   }, [currentPage]);
 
+  // Получаем роль пользователя при загрузке
   useEffect(() => {
-    const savedUser = localStorage.getItem('telegram_user');
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-      } catch (error) {
-        console.error('Error parsing user:', error);
+    const loadUserAndRole = async () => {
+      const savedUser = localStorage.getItem('telegram_user');
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
+          
+          // Получаем роль пользователя
+          await fetchUserRole();
+        } catch (error) {
+          console.error('Error parsing user:', error);
+        }
       }
-    }
+    };
+    
+    loadUserAndRole();
   }, []);
+
+  const fetchUserRole = async () => {
+    try {
+      const API_BASE = import.meta.env.DEV 
+        ? 'http://localhost:4000' 
+        : 'https://spacego-backend.onrender.com';
+      
+      const initData = localStorage.getItem('telegram_init_data');
+      if (!initData) return;
+      
+      const response = await fetch(`${API_BASE}/api/user`, {
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserRole(data.user?.role || 'user');
+      }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  };
 
   const handleTelegramAuthSuccess = (userData) => {
     setUser(userData);
     setCurrentPage('home');
+    fetchUserRole();
   };
 
   const handleLogout = () => {
@@ -251,6 +286,7 @@ function AppContent() {
     localStorage.removeItem('telegram_init_data');
     localStorage.removeItem('editing_ad'); // Очищаем при выходе
     setUser(null);
+    setUserRole('user');
     setCurrentPage('home');
     setSelectedAd(null);
   };
@@ -287,23 +323,26 @@ function AppContent() {
   }
 
   // Определяем, нужно ли показывать нижнюю навигацию
-  const showBottomNav = currentPage !== 'ad-detail' && currentPage !== 'edit-ad';
+  const showBottomNav = currentPage !== 'ad-detail' && 
+                       currentPage !== 'edit-ad' && 
+                       currentPage !== 'moderation';
 
- const safeAreaStyle = {
-  minHeight: '100vh', 
-  backgroundColor: '#f6f6f8', 
-  fontFamily: "'Space Grotesk', sans-serif",
-  paddingBottom: showBottomNav ? '80px' : '0',
-  paddingTop: `${safeAreaTop}px`,
-  paddingLeft: 'env(safe-area-inset-left, 0px)',
-  paddingRight: 'env(safe-area-inset-right, 0px)',
-};
+  const safeAreaStyle = {
+    minHeight: '100vh', 
+    backgroundColor: '#f6f6f8', 
+    fontFamily: "'Space Grotesk', sans-serif",
+    paddingBottom: showBottomNav ? '80px' : '0',
+    paddingTop: `${safeAreaTop}px`,
+    paddingLeft: 'env(safe-area-inset-left, 0px)',
+    paddingRight: 'env(safe-area-inset-right, 0px)',
+  };
 
   return (
     <div style={safeAreaStyle}>
       {currentPage === 'home' && (
         <Home 
           user={user} 
+          userRole={userRole}
           onLogout={handleLogout} 
           onViewAd={viewAd}
           onCreateAd={() => setCurrentPage('create-ad')}
@@ -331,6 +370,7 @@ function AppContent() {
       {currentPage === 'profile' && (
         <Profile 
           user={user}
+          userRole={userRole}
           onBack={() => setCurrentPage('home')}
           onViewAd={viewAd}
           onLogout={handleLogout}
@@ -344,6 +384,11 @@ function AppContent() {
             localStorage.removeItem('editing_ad');
           }}
           onUpdate={handleAdUpdated}
+        />
+      )}
+      {currentPage === 'moderation' && (
+        <ModerationPanel 
+          onBack={() => setCurrentPage('home')}
         />
       )}
       
