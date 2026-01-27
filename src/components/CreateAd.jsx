@@ -1,12 +1,12 @@
 // frontend/src/components/CreateAd.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 
-function CreateAd({ onBack, onAdCreated }) {
+function CreateAd({ onBack, onAdCreated,setCurrentPage  }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     price: '',
-    categoryId: '', // ID подкатегории
+    categoryId: '', 
     condition: 'new',
     location: ''
   })
@@ -363,62 +363,68 @@ function CreateAd({ onBack, onAdCreated }) {
 }
 
   const handleSubmit = async () => {
-    const errors = validateForm()
-    setFieldErrors(errors)
+  const errors = validateForm();
+  setFieldErrors(errors);
 
-    if (Object.keys(errors).length > 0) {
-      setStatus('❌ Заполните выделенные обязательные поля')
-
-      // Автопрокрутка к первому полю с ошибкой
-      const firstErrorField = Object.keys(errors)[0]
-      const fieldElement = document.querySelector(`[data-field="${firstErrorField}"]`)
-      if (fieldElement) {
-        fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        fieldElement.focus({ preventScroll: true }) // фокус без дёргания
-      }
-      return
+  if (Object.keys(errors).length > 0) {
+    setStatus('❌ Заполните выделенные обязательные поля');
+    
+    const firstErrorField = Object.keys(errors)[0];
+    const fieldElement = document.querySelector(`[data-field="${firstErrorField}"]`);
+    if (fieldElement) {
+      fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      fieldElement.focus({ preventScroll: true });
     }
-
-    setStatus('')
-    setUploading(true)
-
-    try {
-      const initData = localStorage.getItem('telegram_init_data');
-      const formDataToSend = new FormData()
-      formDataToSend.append('title', formData.title)
-      formDataToSend.append('description', formData.description)
-      formDataToSend.append('price', formData.price)
-      formDataToSend.append('categoryId', formData.categoryId)
-      formDataToSend.append('condition', formData.condition)
-      formDataToSend.append('location', formData.location.trim())
-      formDataToSend.append('propertyDetails', JSON.stringify(propertyDetails))
-
-      photos.forEach(photo => {
-        formDataToSend.append('photos', photo.file)
-      })
-
-      const res = await fetch(`${API_BASE}/api/ads`, {
-        method: 'POST',
-        headers: { 'telegram-init-data': initData },
-        body: formDataToSend
-      })
-
-      const data = await res.json()
-      if (res.ok) {
-        setStatus('✅ Объявление успешно создано!')
-        setTimeout(() => {
-          onAdCreated && onAdCreated(data.ad)
-          onBack()
-        }, 1500)
-      } else {
-        setStatus(`❌ ${data.error || 'Ошибка публикации'}`)
-      }
-    } catch (err) {
-      setStatus('❌ Ошибка сети')
-    } finally {
-      setUploading(false)
-    }
+    return;
   }
+
+  setStatus('');
+  setUploading(true);
+
+  try {
+    const initData = localStorage.getItem('telegram_init_data');
+    const formDataToSend = new FormData()
+    formDataToSend.append('title', formData.title)
+    formDataToSend.append('description', formData.description)
+    formDataToSend.append('price', formData.price)
+    formDataToSend.append('categoryId', formData.categoryId)
+    formDataToSend.append('condition', formData.condition)
+    formDataToSend.append('location', formData.location.trim())
+    formDataToSend.append('propertyDetails', JSON.stringify(propertyDetails))
+
+    photos.forEach(photo => {
+      formDataToSend.append('photos', photo.file)
+    })
+
+    const res = await fetch(`${API_BASE}/api/ads`, {
+      method: 'POST',
+      headers: { 'telegram-init-data': initData },
+      body: formDataToSend
+    })
+
+    const data = await res.json()
+    if (res.ok) {
+      setStatus('✅ Объявление создано и отправлено на проверку!');
+      
+      // Переходим в профиль через 1.5 секунды
+      setTimeout(() => {
+        onAdCreated && onAdCreated(data.ad);
+        // Вместо onBack используем setCurrentPage если он есть
+        if (setCurrentPage) {
+          setCurrentPage('profile');
+        } else {
+          onBack();
+        }
+      }, 1500);
+    } else {
+      setStatus(`❌ ${data.error || 'Ошибка публикации'}`);
+    }
+  } catch (err) {
+    setStatus('❌ Ошибка сети');
+  } finally {
+    setUploading(false);
+  }
+}
 
   // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ СТИЛЕЙ ---
   const getErrorStyle = (field) => {

@@ -9,6 +9,7 @@ import Profile from './components/Profile'
 import BottomNav from './components/BottomNav'
 import EditAd from './components/EditAd'
 import ModerationPanel from './components/ModerationPanel'
+import AdminPanel from './components/AdminPanel'
 
 const AppCacheContext = createContext()
 
@@ -298,7 +299,8 @@ function AppContent() {
 
   const handleAdCreated = (ad) => {
     console.log('Новое объявление создано:', ad);
-    setCurrentPage('home');
+    // Теперь перенаправляем в профиль
+    setCurrentPage('profile');
   };
 
   const handleAdUpdated = (updatedAd) => {
@@ -325,7 +327,8 @@ function AppContent() {
   // Определяем, нужно ли показывать нижнюю навигацию
   const showBottomNav = currentPage !== 'ad-detail' && 
                        currentPage !== 'edit-ad' && 
-                       currentPage !== 'moderation';
+                       currentPage !== 'moderation' &&
+                       currentPage !== 'admin';
 
   const safeAreaStyle = {
     minHeight: '100vh', 
@@ -359,6 +362,7 @@ function AppContent() {
         <CreateAd 
           onBack={() => setCurrentPage('home')} 
           onAdCreated={handleAdCreated}
+          setCurrentPage={setCurrentPage}  // ← добавлено
         />
       )}
       {currentPage === 'favorites' && (
@@ -388,7 +392,12 @@ function AppContent() {
       )}
       {currentPage === 'moderation' && (
         <ModerationPanel 
-          onBack={() => setCurrentPage('home')}
+          onBack={() => setCurrentPage('profile')}
+        />
+      )}
+      {currentPage === 'admin' && (
+        <AdminPanel 
+          onBack={() => setCurrentPage('profile')}
         />
       )}
       
