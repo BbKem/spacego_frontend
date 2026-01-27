@@ -142,45 +142,44 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   };
 
   const getCurrentAds = () => {
-    console.log('📊 Фильтрация объявлений для вкладки:', activeTab);
-    
-    switch (activeTab) {
-      case 'active': 
-        // Активные = не в архиве И статус approved
-        const activeAds = userAds.filter(ad => {
-          const isActive = !ad.is_archived && ad.status === 'approved';
-          console.log(`Объявление ${ad.id}: архив=${ad.is_archived}, статус=${ad.status}, активное=${isActive}`);
-          return isActive;
-        });
-        console.log('✅ Активные объявления:', activeAds);
-        return activeAds;
-        
-      case 'archived': 
-        const archivedAds = userAds.filter(ad => {
-          const isArchived = ad.is_archived === true;
-          console.log(`Объявление ${ad.id}: архив=${ad.is_archived}, архивное=${isArchived}`);
-          return isArchived;
-        });
-        console.log('📁 Архивные объявления:', archivedAds);
-        return archivedAds;
-        
-      case 'favorites': 
-        console.log('❤️ Избранные объявления:', favorites);
-        return favorites;
-        
-      case 'pending':
-        const pendingAds = userAds.filter(ad => {
-          const isPending = !ad.is_archived && ad.status === 'pending';
-          console.log(`Объявление ${ad.id}: архив=${ad.is_archived}, статус=${ad.status}, на проверке=${isPending}`);
-          return isPending;
-        });
-        console.log('⏳ Объявления на проверке:', pendingAds);
-        return pendingAds;
-        
-      default: 
-        return [];
-    }
-  };
+console.log('📊 Фильтрация объявлений для вкладки:', activeTab);
+switch (activeTab) {
+case 'active':
+// Активные = не в архиве И статус approved
+const activeAds = userAds.filter(ad => {
+const isArchived = ad.is_archived === true;
+const isApproved = ad.status === 'approved';
+const isActive = !isArchived && isApproved;
+console.log(`Объявление ${ad.id}: архив=${ad.is_archived}, статус=${ad.status}, активное=${isActive}`);
+return isActive;
+});
+console.log('✅ Активные объявления:', activeAds);
+return activeAds;
+case 'archived':
+const archivedAds = userAds.filter(ad => {
+const isArchived = ad.is_archived === true;
+console.log(`Объявление ${ad.id}: архив=${ad.is_archived}, архивное=${isArchived}`);
+return isArchived;
+});
+console.log('📁 Архивные объявления:', archivedAds);
+return archivedAds;
+case 'favorites':
+console.log('❤️ Избранные объявления:', favorites);
+return favorites;
+case 'pending':
+const pendingAds = userAds.filter(ad => {
+const isArchived = ad.is_archived === true;
+const isPending = ad.status === 'pending';
+const isOnPending = !isArchived && isPending;
+console.log(`Объявление ${ad.id}: архив=${ad.is_archived}, статус=${ad.status}, на проверке=${isOnPending}`);
+return isOnPending;
+});
+console.log('⏳ Объявления на проверке:', pendingAds);
+return pendingAds;
+default:
+return [];
+}
+};
 
   const getCurrentLoading = () => {
     switch (activeTab) {
@@ -282,28 +281,29 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     setShowMenuForAd(null);
   };
 
-  const getAdsCountByStatus = () => {
-    console.log('🧮 Подсчёт статистики из', userAds.length, 'объявлений');
-    
-    // Активные: не в архиве И статус approved
-    const active = userAds.filter(ad => 
-      !ad.is_archived && ad.status === 'approved'
-    ).length;
-    
-    // На проверке: не в архиве И статус pending
-    const pending = userAds.filter(ad => 
-      !ad.is_archived && ad.status === 'pending'
-    ).length;
-    
-    // В архиве: is_archived === true
-    const archived = userAds.filter(ad => 
-      ad.is_archived === true
-    ).length;
-    
-    console.log('📈 Результат подсчёта:', { active, pending, archived });
-    
-    return { active, pending, archived };
-  };
+const getAdsCountByStatus = () => {
+console.log('🧮 Подсчёт статистики из', userAds.length, 'объявлений');
+  
+// Активные: не в архиве (или не определено) И статус approved
+const active = userAds.filter(ad => {
+const isArchived = ad.is_archived === true;
+const isApproved = ad.status === 'approved';
+return !isArchived && isApproved;
+}).length;
+
+// На проверке: не в архиве И статус pending
+const pending = userAds.filter(ad => {
+const isArchived = ad.is_archived === true;
+const isPending = ad.status === 'pending';
+return !isArchived && isPending;
+}).length;
+
+// В архиве: is_archived === true
+const archived = userAds.filter(ad => ad.is_archived === true).length;
+
+console.log('📈 Результат подсчёта:', { active, pending, archived });
+return { active, pending, archived };
+};
 
   const getPendingCount = () => {
     return userAds.filter(ad => 
