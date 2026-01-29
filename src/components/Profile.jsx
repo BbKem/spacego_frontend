@@ -25,50 +25,100 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   }, []);
 
   const fetchUserAds = async () => {
-    console.log('fetchUserAds: Начало загрузки');
-    setIsLoading(true);
+  console.log('=== fetchUserAds DEBUG ===');
+  
+  // 🔴 ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ ДАННЫХ АВТОРИЗАЦИИ
+  const initData = localStorage.getItem('telegram_init_data');
+  console.log('telegram_init_data from localStorage (first 300 chars):', initData?.substring(0, 300));
+  
+  // Парсим и логируем реальный telegram_id
+  if (initData) {
     try {
-      const initData = localStorage.getItem('telegram_init_data');
-      if (!initData) {
-        console.log('fetchUserAds: Нет данных авторизации');
-        return;
-      }
-
-      const response = await fetch(`${API_BASE}/api/my-ads`, {
-        headers: { 'telegram-init-data': initData }
-      });
-
-      console.log('fetchUserAds: Ответ сервера', response.status);
+      const params = new URLSearchParams(initData);
+      const userStr = params.get('user');
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('fetchUserAds: Получено объявлений', data.length);
-        console.log('fetchUserAds: Первые 3 объявления:', data.slice(0, 3));
+      if (userStr) {
+        const decodedUserStr = decodeURIComponent(userStr);
+        console.log('Decoded user string:', decodedUserStr);
         
-        // Проверяем структуру каждого объявления
-        data.forEach((ad, index) => {
-          console.log(`Объявление ${index + 1}:`, {
-            id: ad.id,
-            title: ad.title,
-            status: ad.status,
-            is_archived: ad.is_archived,
-            status_type: typeof ad.status,
-            is_archived_type: typeof ad.is_archived
-          });
-        });
+        const userData = JSON.parse(decodedUserStr);
+        console.log('Parsed user data:', userData);
+        console.log('telegram_id:', userData.id, 'Type:', typeof userData.id);
+        console.log('username:', userData.username);
+        console.log('first_name:', userData.first_name);
         
-        setUserAds(data);
+        // Проверяем, не превышает ли ID безопасное значение
+        if (typeof userData.id === 'number') {
+          console.log('⚠️ telegram_id is NUMBER - potential precision issue!');
+          console.log('Number.MAX_SAFE_INTEGER:', Number.MAX_SAFE_INTEGER);
+          console.log('Is safe:', Math.abs(userData.id) <= Number.MAX_SAFE_INTEGER);
+        } else {
+          console.log('✅ telegram_id is STRING - safe!');
+        }
       } else {
-        const errorText = await response.text();
-        console.error('fetchUserAds: Ошибка загрузки', response.status, errorText);
+        console.error('❌ No "user" field in initData');
       }
-    } catch (error) {
-      console.error('fetchUserAds: Исключение', error);
-    } finally {
-      setIsLoading(false);
-      console.log('fetchUserAds: Завершено');
+    } catch (e) {
+      console.error('❌ Error parsing user data:', e);
     }
-  };
+  } else {
+    console.error('❌ No telegram_init_data in localStorage');
+  }
+  
+  console.log('fetchUserAds: Начало загрузки');
+  setIsLoading(true);
+  
+  try {
+    if (!initData) {
+      console.log('fetchUserAds: Нет данных авторизации');
+      return;
+    }
+
+    const response = await fetch(`${API_BASE}/api/my-ads`, {
+      headers: { 'telegram-init-data': initData }
+    });
+
+    console.log('fetchUserAds: Ответ сервера', response.status);
+    console.log('fetchUserAds: Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('fetchUserAds: Получено объявлений', data.length);
+      console.log('fetchUserAds: Все объявления:', data);
+      
+      // Проверяем структуру каждого объявления
+      data.forEach((ad, index) => {
+        console.log(`Объявление ${index + 1}:`, {
+          id: ad.id,
+          user_id: ad.user_id,
+          title: ad.title,
+          status: ad.status,
+          is_archived: ad.is_archived,
+          status_type: typeof ad.status,
+          is_archived_type: typeof ad.is_archived
+        });
+      });
+      
+      setUserAds(data);
+    } else {
+      const errorText = await response.text();
+      console.error('fetchUserAds: Ошибка загрузки', response.status, errorText);
+      
+      // Попробуем получить дополнительную информацию
+      if (response.status === 401) {
+        console.error('❌ 401 Unauthorized - пользователь не найден на бэкенде');
+      } else if (response.status === 500) {
+        console.error('❌ 500 Server Error - ошибка на сервере');
+      }
+    }
+  } catch (error) {
+    console.error('fetchUserAds: Исключение', error);
+    console.error('fetchUserAds: Stack trace:', error.stack);
+  } finally {
+    setIsLoading(false);
+    console.log('fetchUserAds: Завершено');
+  }
+};
 
   const fetchFavorites = async () => {
     setIsFavoritesLoading(true);
