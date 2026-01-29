@@ -109,10 +109,11 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   };
 
   const isArchived = (ad) => ad.is_archived === true;
-  const isActive = (ad) => !isArchived(ad) && ad.status === 'approved';
-  const isPending = (ad) => !isArchived(ad) && ad.status === 'pending';
+  const isActive = (ad) => ad.status === 'approved' && !isArchived(ad);
+  const isPending = (ad) => ad.status === 'pending' && !isArchived(ad);
+  const isRejected = (ad) => ad.status === 'rejected' && !isArchived(ad);
 
-  const getCurrentAds = () => {
+   const getCurrentAds = () => {
     switch (activeTab) {
       case 'active':
         return userAds.filter(isActive);
@@ -122,6 +123,8 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
         return favorites;
       case 'pending':
         return userAds.filter(isPending);
+      case 'rejected':
+        return userAds.filter(isRejected);
       default:
         return [];
     }
@@ -223,20 +226,34 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     setShowMenuForAd(null);
   };
 
-  const getAdsCountByStatus = () => {
-    const active = userAds.filter(isActive).length;
-    const pending = userAds.filter(isPending).length;
-    const archived = userAds.filter(isArchived).length;
+   const getAdsCountByStatus = () => {
+    const active = userAds.filter(ad => 
+      ad.status === 'approved' && 
+      ad.is_archived !== true
+    ).length;
+    
+    const pending = userAds.filter(ad => 
+      ad.status === 'pending' && 
+      ad.is_archived !== true
+    ).length;
+    
+    const archived = userAds.filter(ad => 
+      ad.is_archived === true
+    ).length;
+    
     return { active, pending, archived };
   };
 
-  const getPendingCount = () => {
+    const getPendingCount = () => {
     return userAds.filter(isPending).length;
   };
+
 
   const counts = getAdsCountByStatus();
   const isModeratorOrAdmin = userRole === 'moderator' || userRole === 'admin';
   const handleAdClick = (ad) => onViewAd(ad);
+
+  const rejectedCount = userAds.filter(isRejected).length;
 
   return (
     <div style={pageStyle}>
@@ -302,42 +319,49 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
         </>
       )}
 
-      {/* Stats */}
-      <div style={statsContainerStyle}>
-        <div style={statItemStyle}>
-          <div style={statNumberStyle}>{counts.active}</div>
-          <div style={statLabelStyle}>Активные</div>
-        </div>
-        <div style={statItemStyle}>
-          <div style={statNumberStyle}>{counts.pending}</div>
-          <div style={statLabelStyle}>На проверке</div>
-        </div>
-        <div style={statItemStyle}>
-          <div style={statNumberStyle}>{counts.archived}</div>
-          <div style={statLabelStyle}>Архив</div>
-        </div>
-        <div style={statItemStyle}>
-          <div style={statNumberStyle}>{favorites.length}</div>
-          <div style={statLabelStyle}>Избранное</div>
-        </div>
+       <div style={statsContainerStyle}>
+      <div style={statItemStyle}>
+        <div style={statNumberStyle}>{counts.active}</div>
+        <div style={statLabelStyle}>Активные</div>
       </div>
+      <div style={statItemStyle}>
+        <div style={statNumberStyle}>{counts.pending}</div>
+        <div style={statLabelStyle}>На проверке</div>
+      </div>
+      <div style={statItemStyle}>
+        <div style={statNumberStyle}>{counts.archived}</div>
+        <div style={statLabelStyle}>Архив</div>
+      </div>
+      <div style={statItemStyle}>
+        <div style={statNumberStyle}>{rejectedCount}</div>
+        <div style={statLabelStyle}>Отклонено</div>
+      </div>
+      <div style={statItemStyle}>
+        <div style={statNumberStyle}>{favorites.length}</div>
+        <div style={statLabelStyle}>Избранное</div>
+      </div>
+    </div>
 
-      {/* Tabs */}
-      <div style={tabsContainerStyle}>
-        <button style={activeTab === 'active' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('active')}>
-          Активные
-        </button>
-        <button style={activeTab === 'pending' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('pending')}>
-          На проверке
-          {getPendingCount() > 0 && <span style={badgeStyle}>{getPendingCount()}</span>}
-        </button>
-        <button style={activeTab === 'archived' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('archived')}>
-          Архив
-        </button>
-        <button style={activeTab === 'favorites' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('favorites')}>
-          Избранное
-        </button>
-      </div>
+    {/* Обновленные табы */}
+    <div style={tabsContainerStyle}>
+      <button style={activeTab === 'active' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('active')}>
+        Активные
+      </button>
+      <button style={activeTab === 'pending' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('pending')}>
+        На проверке
+        {getPendingCount() > 0 && <span style={badgeStyle}>{getPendingCount()}</span>}
+      </button>
+      <button style={activeTab === 'archived' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('archived')}>
+        Архив
+      </button>
+      <button style={activeTab === 'rejected' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('rejected')}>
+        Отклонено
+        {rejectedCount > 0 && <span style={badgeStyle}>{rejectedCount}</span>}
+      </button>
+      <button style={activeTab === 'favorites' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('favorites')}>
+        Избранное
+      </button>
+    </div>
 
       {/* Ads Grid */}
       <div style={contentStyle}>
@@ -492,8 +516,28 @@ const statsContainerStyle = { display: 'flex', justifyContent: 'space-around', b
 const statItemStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' };
 const statNumberStyle = { fontSize: 20, fontWeight: 'bold', color: '#46A8C1' };
 const statLabelStyle = { fontSize: 12, color: '#6b7280' };
-const tabsContainerStyle = { display: 'flex', backgroundColor: 'white', padding: '0 16px', borderBottom: '1px solid #eee' };
-const tabStyle = { flex: 1, padding: '16px 0', background: 'none', border: 'none', borderBottom: '3px solid transparent', color: '#6b7280', fontSize: 14, fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' };
+const tabsContainerStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  backgroundColor: 'white',
+  padding: '0 16px',
+  borderBottom: '1px solid #eee'
+};
+
+const tabStyle = {
+  flex: '1 0 auto',
+  minWidth: '80px',
+  padding: '16px 0',
+  background: 'none',
+  border: 'none',
+  borderBottom: '3px solid transparent',
+  color: '#6b7280',
+  fontSize: 12,
+  fontWeight: '500',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
+  position: 'relative'
+};
 const tabActiveStyle = { ...tabStyle, color: '#46A8C1', borderBottom: '3px solid #46A8C1' };
 const contentStyle = { flex: 1, padding: '16px', paddingBottom: '80px', position: 'relative' };
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: '12px' };
@@ -518,6 +562,19 @@ const logoutContainerStyle = { padding: '16px', borderTop: '1px solid #eee', bac
 const logoutButtonStyle = { width: '100%', padding: '12px', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '8px', fontSize: 16, fontWeight: '500', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' };
 const statusBadgeStyle = { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(245, 158, 11, 0.9)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 'bold', zIndex: 2, display: 'flex', alignItems: 'center', gap: 2 };
 const rejectedBadgeStyle = { ...statusBadgeStyle, backgroundColor: 'rgba(239, 68, 68, 0.9)' };
-const badgeStyle = { position: 'absolute', top: -5, right: -5, backgroundColor: '#ef4444', color: 'white', fontSize: 10, width: 18, height: 18, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const badgeStyle = {
+  position: 'absolute',
+  top: -5,
+  right: -5,
+  backgroundColor: '#ef4444',
+  color: 'white',
+  fontSize: 10,
+  width: 18,
+  height: 18,
+  borderRadius: 9,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
+};
 
 export default Profile;
