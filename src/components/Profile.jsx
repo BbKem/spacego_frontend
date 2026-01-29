@@ -18,29 +18,55 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     : 'https://spacego-backend.onrender.com';
 
   useEffect(() => {
+    console.log('Profile: Запуск загрузки данных');
     fetchUserAds();
     fetchFavorites();
     fetchUserRole();
   }, []);
 
   const fetchUserAds = async () => {
+    console.log('fetchUserAds: Начало загрузки');
     setIsLoading(true);
     try {
       const initData = localStorage.getItem('telegram_init_data');
-      if (!initData) return;
+      if (!initData) {
+        console.log('fetchUserAds: Нет данных авторизации');
+        return;
+      }
 
       const response = await fetch(`${API_BASE}/api/my-ads`, {
         headers: { 'telegram-init-data': initData }
       });
 
+      console.log('fetchUserAds: Ответ сервера', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('fetchUserAds: Получено объявлений', data.length);
+        console.log('fetchUserAds: Первые 3 объявления:', data.slice(0, 3));
+        
+        // Проверяем структуру каждого объявления
+        data.forEach((ad, index) => {
+          console.log(`Объявление ${index + 1}:`, {
+            id: ad.id,
+            title: ad.title,
+            status: ad.status,
+            is_archived: ad.is_archived,
+            status_type: typeof ad.status,
+            is_archived_type: typeof ad.is_archived
+          });
+        });
+        
         setUserAds(data);
+      } else {
+        const errorText = await response.text();
+        console.error('fetchUserAds: Ошибка загрузки', response.status, errorText);
       }
     } catch (error) {
-      console.error('Ошибка загрузки объявлений пользователя:', error);
+      console.error('fetchUserAds: Исключение', error);
     } finally {
       setIsLoading(false);
+      console.log('fetchUserAds: Завершено');
     }
   };
 
@@ -108,26 +134,77 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     return 'Пользователь';
   };
 
-  const isArchived = (ad) => ad.is_archived === true;
-  const isActive = (ad) => ad.status === 'approved' && !isArchived(ad);
-  const isPending = (ad) => ad.status === 'pending' && !isArchived(ad);
-  const isRejected = (ad) => ad.status === 'rejected' && !isArchived(ad);
+  // Функции фильтрации с подробным логированием
+  const isArchived = (ad) => {
+    // Проверяем все возможные варианты значения is_archived
+    const isArchivedValue = ad.is_archived;
+    console.log(`isArchived для ${ad.id}: значение=${isArchivedValue}, тип=${typeof isArchivedValue}`);
+    
+    if (isArchivedValue === true || isArchivedValue === 'true' || isArchivedValue === 1) {
+      return true;
+    }
+    if (isArchivedValue === false || isArchivedValue === 'false' || isArchivedValue === 0) {
+      return false;
+    }
+    if (isArchivedValue === null || isArchivedValue === undefined) {
+      return false;
+    }
+    return Boolean(isArchivedValue);
+  };
+  
+  const isActive = (ad) => {
+    const status = ad.status;
+    const archived = isArchived(ad);
+    const result = status === 'approved' && !archived;
+    
+    console.log(`isActive для ${ad.id}: status=${status}, isArchived=${archived}, result=${result}`);
+    return result;
+  };
+  
+  const isPending = (ad) => {
+    const status = ad.status;
+    const archived = isArchived(ad);
+    const result = status === 'pending' && !archived;
+    
+    console.log(`isPending для ${ad.id}: status=${status}, isArchived=${archived}, result=${result}`);
+    return result;
+  };
+  
+  const isRejected = (ad) => {
+    const status = ad.status;
+    const archived = isArchived(ad);
+    const result = status === 'rejected' && !archived;
+    
+    console.log(`isRejected для ${ad.id}: status=${status}, isArchived=${archived}, result=${result}`);
+    return result;
+  };
 
-   const getCurrentAds = () => {
+  const getCurrentAds = () => {
+    console.log(`getCurrentAds: activeTab=${activeTab}, всего объявлений=${userAds.length}`);
+    
+    let result;
     switch (activeTab) {
       case 'active':
-        return userAds.filter(isActive);
+        result = userAds.filter(isActive);
+        break;
       case 'archived':
-        return userAds.filter(isArchived);
+        result = userAds.filter(isArchived);
+        break;
       case 'favorites':
-        return favorites;
+        result = favorites;
+        break;
       case 'pending':
-        return userAds.filter(isPending);
+        result = userAds.filter(isPending);
+        break;
       case 'rejected':
-        return userAds.filter(isRejected);
+        result = userAds.filter(isRejected);
+        break;
       default:
-        return [];
+        result = [];
     }
+    
+    console.log(`getCurrentAds: найдено ${result.length} объявлений для вкладки ${activeTab}`);
+    return result;
   };
 
   const getCurrentLoading = () => {
@@ -135,6 +212,7 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
       case 'active':
       case 'archived':
       case 'pending':
+      case 'rejected':
         return isLoading;
       case 'favorites':
         return isFavoritesLoading;
@@ -226,34 +304,34 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     setShowMenuForAd(null);
   };
 
-   const getAdsCountByStatus = () => {
-    const active = userAds.filter(ad => 
-      ad.status === 'approved' && 
-      ad.is_archived !== true
-    ).length;
+  // Функция для подсчета статистики
+  const getAdsCountByStatus = () => {
+    console.log('getAdsCountByStatus: Начало подсчета');
     
-    const pending = userAds.filter(ad => 
-      ad.status === 'pending' && 
-      ad.is_archived !== true
-    ).length;
+    const active = userAds.filter(isActive).length;
+    const pending = userAds.filter(isPending).length;
+    const archived = userAds.filter(isArchived).length;
+    const rejected = userAds.filter(isRejected).length;
     
-    const archived = userAds.filter(ad => 
-      ad.is_archived === true
-    ).length;
+    console.log('getAdsCountByStatus: Результаты', {
+      active,
+      pending,
+      archived,
+      rejected,
+      total: userAds.length
+    });
     
-    return { active, pending, archived };
+    return { active, pending, archived, rejected };
   };
 
-    const getPendingCount = () => {
+  const getPendingCount = () => {
     return userAds.filter(isPending).length;
   };
 
-
+  // Обновляем счетчики при каждом рендере
   const counts = getAdsCountByStatus();
   const isModeratorOrAdmin = userRole === 'moderator' || userRole === 'admin';
   const handleAdClick = (ad) => onViewAd(ad);
-
-  const rejectedCount = userAds.filter(isRejected).length;
 
   return (
     <div style={pageStyle}>
@@ -319,49 +397,92 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
         </>
       )}
 
-       <div style={statsContainerStyle}>
-      <div style={statItemStyle}>
-        <div style={statNumberStyle}>{counts.active}</div>
-        <div style={statLabelStyle}>Активные</div>
+      {/* Кнопка обновления */}
+      <div style={{ padding: '0 16px 8px' }}>
+        <button 
+          style={refreshButtonStyle}
+          onClick={fetchUserAds}
+          disabled={isLoading}
+        >
+          <span 
+            className="material-symbols-outlined"
+            style={{ 
+              marginRight: 8, 
+              animation: isLoading ? 'spin 1s linear infinite' : 'none' 
+            }}
+          >
+            refresh
+          </span>
+          {isLoading ? 'Обновление...' : 'Обновить данные'}
+        </button>
       </div>
-      <div style={statItemStyle}>
-        <div style={statNumberStyle}>{counts.pending}</div>
-        <div style={statLabelStyle}>На проверке</div>
-      </div>
-      <div style={statItemStyle}>
-        <div style={statNumberStyle}>{counts.archived}</div>
-        <div style={statLabelStyle}>Архив</div>
-      </div>
-      <div style={statItemStyle}>
-        <div style={statNumberStyle}>{rejectedCount}</div>
-        <div style={statLabelStyle}>Отклонено</div>
-      </div>
-      <div style={statItemStyle}>
-        <div style={statNumberStyle}>{favorites.length}</div>
-        <div style={statLabelStyle}>Избранное</div>
-      </div>
-    </div>
 
-    {/* Обновленные табы */}
-    <div style={tabsContainerStyle}>
-      <button style={activeTab === 'active' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('active')}>
-        Активные
-      </button>
-      <button style={activeTab === 'pending' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('pending')}>
-        На проверке
-        {getPendingCount() > 0 && <span style={badgeStyle}>{getPendingCount()}</span>}
-      </button>
-      <button style={activeTab === 'archived' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('archived')}>
-        Архив
-      </button>
-      <button style={activeTab === 'rejected' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('rejected')}>
-        Отклонено
-        {rejectedCount > 0 && <span style={badgeStyle}>{rejectedCount}</span>}
-      </button>
-      <button style={activeTab === 'favorites' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('favorites')}>
-        Избранное
-      </button>
-    </div>
+      {/* Статистика */}
+      <div style={statsContainerStyle}>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{counts.active}</div>
+          <div style={statLabelStyle}>Активные</div>
+        </div>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{counts.pending}</div>
+          <div style={statLabelStyle}>На проверке</div>
+        </div>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{counts.archived}</div>
+          <div style={statLabelStyle}>Архив</div>
+        </div>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{counts.rejected}</div>
+          <div style={statLabelStyle}>Отклонено</div>
+        </div>
+        <div style={statItemStyle}>
+          <div style={statNumberStyle}>{favorites.length}</div>
+          <div style={statLabelStyle}>Избранное</div>
+        </div>
+      </div>
+
+      {/* Панель отладки */}
+      <div style={{ padding: '0 16px 8px' }}>
+        <details style={debugStyle}>
+          <summary style={debugSummaryStyle}>Отладочная информация (нажмите для просмотра)</summary>
+          <div style={debugContentStyle}>
+            <p><strong>Всего объявлений:</strong> {userAds.length}</p>
+            <p><strong>Текущая вкладка:</strong> {activeTab}</p>
+            <p><strong>Показано объявлений:</strong> {getCurrentAds().length}</p>
+            <p><strong>Статистика:</strong> Активные={counts.active}, На проверке={counts.pending}, Архив={counts.archived}, Отклонено={counts.rejected}</p>
+            <p><strong>Примеры данных:</strong></p>
+            <div style={debugAdsStyle}>
+              {userAds.slice(0, 3).map((ad, index) => (
+                <div key={index} style={debugAdItemStyle}>
+                  <p><strong>Объявление {index + 1}:</strong> {ad.title}</p>
+                  <p><small>ID: {ad.id}, Status: {ad.status}, is_archived: {String(ad.is_archived)}</small></p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </details>
+      </div>
+
+      {/* Tabs */}
+      <div style={tabsContainerStyle}>
+        <button style={activeTab === 'active' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('active')}>
+          Активные
+        </button>
+        <button style={activeTab === 'pending' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('pending')}>
+          На проверке
+          {counts.pending > 0 && <span style={badgeStyle}>{counts.pending}</span>}
+        </button>
+        <button style={activeTab === 'archived' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('archived')}>
+          Архив
+        </button>
+        <button style={activeTab === 'rejected' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('rejected')}>
+          Отклонено
+          {counts.rejected > 0 && <span style={badgeStyle}>{counts.rejected}</span>}
+        </button>
+        <button style={activeTab === 'favorites' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('favorites')}>
+          Избранное
+        </button>
+      </div>
 
       {/* Ads Grid */}
       <div style={contentStyle}>
@@ -379,18 +500,23 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
                   <AdCard ad={ad} />
                 </div>
 
-                {ad.status === 'pending' && (
+                {ad.status === 'pending' && !isArchived(ad) && (
                   <div style={statusBadgeStyle}>
                     <span style={{ fontSize: 10 }}>⏳</span> На проверке
                   </div>
                 )}
-                {ad.status === 'rejected' && (
+                {ad.status === 'rejected' && !isArchived(ad) && (
                   <div style={rejectedBadgeStyle}>
                     <span style={{ fontSize: 10 }}>❌</span> Отклонено
                   </div>
                 )}
+                {isArchived(ad) && (
+                  <div style={archivedBadgeStyle}>
+                    <span style={{ fontSize: 10 }}>📁</span> В архиве
+                  </div>
+                )}
 
-                {activeTab === 'active' && ad.status === 'approved' && (
+                {activeTab === 'active' && ad.status === 'approved' && !isArchived(ad) && (
                   <>
                     <button style={menuButtonStyle} onClick={(e) => {
                       e.stopPropagation();
@@ -416,7 +542,7 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
                   </>
                 )}
 
-                {activeTab === 'archived' && ad.is_archived && (
+                {activeTab === 'archived' && isArchived(ad) && (
                   <>
                     <button style={menuButtonStyle} onClick={(e) => {
                       e.stopPropagation();
@@ -463,18 +589,23 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
             <span className="material-symbols-outlined" style={emptyIconStyle}>
               {activeTab === 'active' ? 'sell' :
                 activeTab === 'pending' ? 'hourglass_empty' :
-                  activeTab === 'archived' ? 'archive' : 'favorite'}
+                activeTab === 'archived' ? 'archive' :
+                activeTab === 'rejected' ? 'block' :
+                'favorite'}
             </span>
             <h3 style={emptyTitleStyle}>
               {activeTab === 'active' ? 'Нет активных объявлений' :
                 activeTab === 'pending' ? 'Нет объявлений на проверке' :
-                  activeTab === 'archived' ? 'Архив пуст' : 'Нет избранных объявлений'}
+                activeTab === 'archived' ? 'Архив пуст' :
+                activeTab === 'rejected' ? 'Нет отклоненных объявлений' :
+                'Нет избранных объявлений'}
             </h3>
             <p style={emptyTextStyle}>
               {activeTab === 'active' ? 'Создайте первое объявление!' :
                 activeTab === 'pending' ? 'Здесь будут ваши объявления, ожидающие проверки' :
-                  activeTab === 'archived' ? 'Здесь будут ваши архивные объявления' :
-                    'Добавляйте объявления в избранное'}
+                activeTab === 'archived' ? 'Здесь будут ваши архивные объявления' :
+                activeTab === 'rejected' ? 'Здесь будут объявления, отклоненные модератором' :
+                'Добавляйте объявления в избранное'}
             </p>
             {activeTab === 'active' && (
               <button style={createAdButtonStyle} onClick={() => setCurrentPage('create-ad')}>
@@ -497,25 +628,215 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   );
 }
 
-// Стили (остаются без изменений)
-const pageStyle = { backgroundColor: '#f6f6f8', minHeight: '100vh', display: 'flex', flexDirection: 'column' };
-const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', backgroundColor: 'white', borderBottom: '1px solid #eee', height: '95px', minHeight: '95px', boxSizing: 'border-box' };
-const backButtonStyle = { width: 40, height: 40, display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: '#46A8C1' };
-const titleStyle = { fontSize: 18, fontWeight: 'bold', color: '#0d121b', margin: 0 };
-const profileHeaderStyle = { backgroundColor: 'white', padding: '24px 16px', display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid #eee' };
-const avatarSectionStyle = { flexShrink: 0 };
-const avatarImageStyle = { width: 80, height: 80, borderRadius: 40, objectFit: 'cover' };
-const avatarPlaceholderStyle = { width: 80, height: 80, borderRadius: 40, backgroundColor: '#46A8C1', color: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: 32, fontWeight: 'bold' };
-const profileInfoStyle = { flex: 1 };
-const userNameStyle = { fontSize: 20, fontWeight: 'bold', color: '#0d121b', margin: '0 0 4px 0', display: 'flex', alignItems: 'center' };
-const usernameStyle = { fontSize: 14, color: '#46A8C1', margin: '0 0 8px 0' };
-const registrationDateStyle = { fontSize: 14, color: '#6b7280', margin: 0 };
-const moderationButtonStyle = { width: '100%', padding: '12px', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '8px', fontSize: 14, fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' };
-const adminButtonStyle = { width: '100%', padding: '12px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', fontSize: 14, fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' };
-const statsContainerStyle = { display: 'flex', justifyContent: 'space-around', backgroundColor: 'white', padding: '16px 0', marginBottom: '12px', borderBottom: '1px solid #eee' };
-const statItemStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' };
-const statNumberStyle = { fontSize: 20, fontWeight: 'bold', color: '#46A8C1' };
-const statLabelStyle = { fontSize: 12, color: '#6b7280' };
+// Стили
+const pageStyle = { 
+  backgroundColor: '#f6f6f8', 
+  minHeight: '100vh', 
+  display: 'flex', 
+  flexDirection: 'column' 
+};
+
+const headerStyle = { 
+  display: 'flex', 
+  justifyContent: 'space-between', 
+  alignItems: 'center', 
+  padding: '0 16px', 
+  backgroundColor: 'white', 
+  borderBottom: '1px solid #eee', 
+  height: '95px', 
+  minHeight: '95px', 
+  boxSizing: 'border-box' 
+};
+
+const backButtonStyle = { 
+  width: 40, 
+  height: 40, 
+  display: 'flex', 
+  justifyContent: 'center', 
+  alignItems: 'center', 
+  background: 'none', 
+  border: 'none', 
+  cursor: 'pointer', 
+  color: '#46A8C1' 
+};
+
+const titleStyle = { 
+  fontSize: 18, 
+  fontWeight: 'bold', 
+  color: '#0d121b', 
+  margin: 0 
+};
+
+const profileHeaderStyle = { 
+  backgroundColor: 'white', 
+  padding: '24px 16px', 
+  display: 'flex', 
+  alignItems: 'center', 
+  gap: '16px', 
+  borderBottom: '1px solid #eee' 
+};
+
+const avatarSectionStyle = { 
+  flexShrink: 0 
+};
+
+const avatarImageStyle = { 
+  width: 80, 
+  height: 80, 
+  borderRadius: 40, 
+  objectFit: 'cover' 
+};
+
+const avatarPlaceholderStyle = { 
+  width: 80, 
+  height: 80, 
+  borderRadius: 40, 
+  backgroundColor: '#46A8C1', 
+  color: 'white', 
+  display: 'flex', 
+  justifyContent: 'center', 
+  alignItems: 'center', 
+  fontSize: 32, 
+  fontWeight: 'bold' 
+};
+
+const profileInfoStyle = { 
+  flex: 1 
+};
+
+const userNameStyle = { 
+  fontSize: 20, 
+  fontWeight: 'bold', 
+  color: '#0d121b', 
+  margin: '0 0 4px 0', 
+  display: 'flex', 
+  alignItems: 'center' 
+};
+
+const usernameStyle = { 
+  fontSize: 14, 
+  color: '#46A8C1', 
+  margin: '0 0 8px 0' 
+};
+
+const registrationDateStyle = { 
+  fontSize: 14, 
+  color: '#6b7280', 
+  margin: 0 
+};
+
+const moderationButtonStyle = { 
+  width: '100%', 
+  padding: '12px', 
+  backgroundColor: '#8b5cf6', 
+  color: 'white', 
+  border: 'none', 
+  borderRadius: '8px', 
+  fontSize: 14, 
+  fontWeight: '500', 
+  cursor: 'pointer', 
+  display: 'flex', 
+  alignItems: 'center', 
+  justifyContent: 'center', 
+  marginBottom: '8px' 
+};
+
+const adminButtonStyle = { 
+  width: '100%', 
+  padding: '12px', 
+  backgroundColor: '#dc2626', 
+  color: 'white', 
+  border: 'none', 
+  borderRadius: '8px', 
+  fontSize: 14, 
+  fontWeight: '500', 
+  cursor: 'pointer', 
+  display: 'flex', 
+  alignItems: 'center', 
+  justifyContent: 'center', 
+  marginBottom: '12px' 
+};
+
+const refreshButtonStyle = {
+  width: '100%',
+  padding: '10px',
+  backgroundColor: '#f0f0f0',
+  color: '#46A8C1',
+  border: '1px solid #e0e0e0',
+  borderRadius: '8px',
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginBottom: '8px',
+  transition: 'all 0.2s ease'
+};
+
+const statsContainerStyle = { 
+  display: 'flex', 
+  justifyContent: 'space-around', 
+  backgroundColor: 'white', 
+  padding: '16px 0', 
+  marginBottom: '12px', 
+  borderBottom: '1px solid #eee',
+  flexWrap: 'wrap' 
+};
+
+const statItemStyle = { 
+  display: 'flex', 
+  flexDirection: 'column', 
+  alignItems: 'center', 
+  gap: '4px',
+  minWidth: '60px',
+  margin: '0 4px'
+};
+
+const statNumberStyle = { 
+  fontSize: 20, 
+  fontWeight: 'bold', 
+  color: '#46A8C1' 
+};
+
+const statLabelStyle = { 
+  fontSize: 12, 
+  color: '#6b7280' 
+};
+
+const debugStyle = {
+  backgroundColor: '#f8f9fa',
+  border: '1px solid #e9ecef',
+  borderRadius: '8px',
+  marginBottom: '12px'
+};
+
+const debugSummaryStyle = {
+  padding: '8px 12px',
+  cursor: 'pointer',
+  fontWeight: '500',
+  color: '#666',
+  outline: 'none'
+};
+
+const debugContentStyle = {
+  padding: '12px',
+  borderTop: '1px solid #e9ecef',
+  fontSize: '12px',
+  color: '#555'
+};
+
+const debugAdsStyle = {
+  marginTop: '8px'
+};
+
+const debugAdItemStyle = {
+  backgroundColor: '#f0f0f0',
+  padding: '8px',
+  borderRadius: '4px',
+  marginBottom: '8px'
+};
+
 const tabsContainerStyle = {
   display: 'flex',
   flexWrap: 'wrap',
@@ -538,43 +859,265 @@ const tabStyle = {
   transition: 'all 0.2s ease',
   position: 'relative'
 };
-const tabActiveStyle = { ...tabStyle, color: '#46A8C1', borderBottom: '3px solid #46A8C1' };
-const contentStyle = { flex: 1, padding: '16px', paddingBottom: '80px', position: 'relative' };
-const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: '12px' };
-const adCardContainerStyle = { position: 'relative' };
-const menuButtonStyle = { position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.9)', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' };
-const menuDropdownStyle = { position: 'absolute', top: 40, right: 8, backgroundColor: 'white', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 10, minWidth: 180, overflow: 'hidden' };
-const menuItemStyle = { display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 14, color: '#374151', transition: 'background-color 0.2s ease', borderBottom: '1px solid #f3f4f6' };
-const menuIconStyle = { fontSize: 18, color: '#6b7280' };
-const confirmOverlayStyle = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 20, borderRadius: 12 };
-const confirmModalStyle = { backgroundColor: 'white', borderRadius: 12, padding: '24px', maxWidth: '320px', width: '90%' };
-const confirmTitleStyle = { fontSize: 18, fontWeight: 'bold', color: '#0d121b', marginBottom: '12px' };
-const confirmTextStyle = { fontSize: 14, color: '#6b7280', marginBottom: '20px', lineHeight: 1.4 };
-const confirmButtonsStyle = { display: 'flex', gap: '12px' };
-const confirmCancelStyle = { flex: 1, padding: '12px', backgroundColor: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: '500', cursor: 'pointer' };
-const confirmDeleteStyle = { flex: 1, padding: '12px', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: '500', cursor: 'pointer' };
-const emptyStateStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', textAlign: 'center' };
-const emptyIconStyle = { fontSize: 64, color: '#e5e7eb', marginBottom: '16px' };
-const emptyTitleStyle = { fontSize: 18, fontWeight: 'bold', color: '#0d121b', marginBottom: '8px' };
-const emptyTextStyle = { fontSize: 14, color: '#6b7280', maxWidth: '300px', marginBottom: '20px' };
-const createAdButtonStyle = { padding: '12px 24px', backgroundColor: '#46A8C1', color: 'white', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-const logoutContainerStyle = { padding: '16px', borderTop: '1px solid #eee', backgroundColor: 'white' };
-const logoutButtonStyle = { width: '100%', padding: '12px', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '8px', fontSize: 16, fontWeight: '500', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' };
-const statusBadgeStyle = { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(245, 158, 11, 0.9)', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 'bold', zIndex: 2, display: 'flex', alignItems: 'center', gap: 2 };
-const rejectedBadgeStyle = { ...statusBadgeStyle, backgroundColor: 'rgba(239, 68, 68, 0.9)' };
+
+const tabActiveStyle = { 
+  ...tabStyle, 
+  color: '#46A8C1', 
+  borderBottom: '3px solid #46A8C1' 
+};
+
 const badgeStyle = {
   position: 'absolute',
-  top: -5,
-  right: -5,
+  top: '-5px',
+  right: '-5px',
   backgroundColor: '#ef4444',
   color: 'white',
   fontSize: 10,
-  width: 18,
-  height: 18,
-  borderRadius: 9,
+  width: '18px',
+  height: '18px',
+  borderRadius: '9px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center'
 };
+
+const contentStyle = { 
+  flex: 1, 
+  padding: '16px', 
+  paddingBottom: '80px', 
+  position: 'relative' 
+};
+
+const gridStyle = { 
+  display: 'grid', 
+  gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', 
+  gap: '12px' 
+};
+
+const adCardContainerStyle = { 
+  position: 'relative' 
+};
+
+const menuButtonStyle = { 
+  position: 'absolute', 
+  top: 8, 
+  right: 8, 
+  width: 30, 
+  height: 30, 
+  borderRadius: 15, 
+  backgroundColor: 'rgba(255,255,255,0.9)', 
+  border: 'none', 
+  cursor: 'pointer', 
+  display: 'flex', 
+  justifyContent: 'center', 
+  alignItems: 'center', 
+  zIndex: 2, 
+  boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+};
+
+const menuDropdownStyle = { 
+  position: 'absolute', 
+  top: 40, 
+  right: 8, 
+  backgroundColor: 'white', 
+  borderRadius: 8, 
+  boxShadow: '0 4px 12px rgba(0,0,0,0.15)', 
+  zIndex: 10, 
+  minWidth: 180, 
+  overflow: 'hidden' 
+};
+
+const menuItemStyle = { 
+  display: 'flex', 
+  alignItems: 'center', 
+  gap: '12px', 
+  width: '100%', 
+  padding: '12px 16px', 
+  background: 'none', 
+  border: 'none', 
+  cursor: 'pointer', 
+  textAlign: 'left', 
+  fontSize: 14, 
+  color: '#374151', 
+  transition: 'background-color 0.2s ease', 
+  borderBottom: '1px solid #f3f4f6' 
+};
+
+const menuIconStyle = { 
+  fontSize: 18, 
+  color: '#6b7280' 
+};
+
+const confirmOverlayStyle = { 
+  position: 'absolute', 
+  top: 0, 
+  left: 0, 
+  right: 0, 
+  bottom: 0, 
+  backgroundColor: 'rgba(0,0,0,0.5)', 
+  display: 'flex', 
+  justifyContent: 'center', 
+  alignItems: 'center', 
+  zIndex: 20, 
+  borderRadius: 12 
+};
+
+const confirmModalStyle = { 
+  backgroundColor: 'white', 
+  borderRadius: 12, 
+  padding: '24px', 
+  maxWidth: '320px', 
+  width: '90%' 
+};
+
+const confirmTitleStyle = { 
+  fontSize: 18, 
+  fontWeight: 'bold', 
+  color: '#0d121b', 
+  marginBottom: '12px' 
+};
+
+const confirmTextStyle = { 
+  fontSize: 14, 
+  color: '#6b7280', 
+  marginBottom: '20px', 
+  lineHeight: 1.4 
+};
+
+const confirmButtonsStyle = { 
+  display: 'flex', 
+  gap: '12px' 
+};
+
+const confirmCancelStyle = { 
+  flex: 1, 
+  padding: '12px', 
+  backgroundColor: '#f3f4f6', 
+  color: '#374151', 
+  border: 'none', 
+  borderRadius: 8, 
+  fontSize: 14, 
+  fontWeight: '500', 
+  cursor: 'pointer' 
+};
+
+const confirmDeleteStyle = { 
+  flex: 1, 
+  padding: '12px', 
+  backgroundColor: '#fee2e2', 
+  color: '#dc2626', 
+  border: 'none', 
+  borderRadius: 8, 
+  fontSize: 14, 
+  fontWeight: '500', 
+  cursor: 'pointer' 
+};
+
+const emptyStateStyle = { 
+  display: 'flex', 
+  flexDirection: 'column', 
+  alignItems: 'center', 
+  justifyContent: 'center', 
+  padding: '60px 20px', 
+  textAlign: 'center' 
+};
+
+const emptyIconStyle = { 
+  fontSize: 64, 
+  color: '#e5e7eb', 
+  marginBottom: '16px' 
+};
+
+const emptyTitleStyle = { 
+  fontSize: 18, 
+  fontWeight: 'bold', 
+  color: '#0d121b', 
+  marginBottom: '8px' 
+};
+
+const emptyTextStyle = { 
+  fontSize: 14, 
+  color: '#6b7280', 
+  maxWidth: '300px', 
+  marginBottom: '20px' 
+};
+
+const createAdButtonStyle = { 
+  padding: '12px 24px', 
+  backgroundColor: '#46A8C1', 
+  color: 'white', 
+  border: 'none', 
+  borderRadius: 8, 
+  fontSize: 14, 
+  fontWeight: '500', 
+  cursor: 'pointer', 
+  display: 'flex', 
+  alignItems: 'center', 
+  justifyContent: 'center' 
+};
+
+const logoutContainerStyle = { 
+  padding: '16px', 
+  borderTop: '1px solid #eee', 
+  backgroundColor: 'white' 
+};
+
+const logoutButtonStyle = { 
+  width: '100%', 
+  padding: '12px', 
+  backgroundColor: '#fee2e2', 
+  color: '#dc2626', 
+  border: 'none', 
+  borderRadius: '8px', 
+  fontSize: 16, 
+  fontWeight: '500', 
+  cursor: 'pointer', 
+  display: 'flex', 
+  justifyContent: 'center', 
+  alignItems: 'center' 
+};
+
+const statusBadgeStyle = { 
+  position: 'absolute', 
+  top: 8, 
+  left: 8, 
+  backgroundColor: 'rgba(245, 158, 11, 0.9)', 
+  color: 'white', 
+  fontSize: 10, 
+  padding: '2px 6px', 
+  borderRadius: 4, 
+  fontWeight: 'bold', 
+  zIndex: 2, 
+  display: 'flex', 
+  alignItems: 'center', 
+  gap: 2 
+};
+
+const rejectedBadgeStyle = { 
+  ...statusBadgeStyle, 
+  backgroundColor: 'rgba(239, 68, 68, 0.9)' 
+};
+
+const archivedBadgeStyle = { 
+  ...statusBadgeStyle, 
+  backgroundColor: 'rgba(107, 114, 128, 0.9)' 
+};
+
+// Добавляем стили для анимации
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  details[open] summary {
+    margin-bottom: 8px;
+  }
+`;
+if (!document.head.querySelector('style[data-profile-spinner]')) {
+  styleSheet.setAttribute('data-profile-spinner', 'true');
+  document.head.appendChild(styleSheet);
+}
 
 export default Profile;
