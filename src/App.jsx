@@ -10,6 +10,7 @@ import BottomNav from './components/BottomNav'
 import EditAd from './components/EditAd'
 import ModerationPanel from './components/ModerationPanel'
 import AdminPanel from './components/AdminPanel'
+import AllReviews from './components/AllReviews'
 
 const AppCacheContext = createContext()
 
@@ -171,6 +172,7 @@ function AppContent() {
   const [safeAreaTop, setSafeAreaTop] = useState(0);
   const [viewingFromModeration, setViewingFromModeration] = useState(false);
   const [viewingFromProfile, setViewingFromProfile] = useState(false);
+   const [viewingFromReviews, setViewingFromReviews] = useState(false);
 
   // ========== ДОБАВЛЕНО: ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP ==========
   useEffect(() => {
@@ -254,7 +256,10 @@ function AppContent() {
       setCurrentPage('home');
     } else if (currentPage === 'favorites') {
       setCurrentPage('home');
-    }
+    }else if (currentPage === 'all-reviews') { // ← ДОБАВЬТЕ ЭТО
+      setCurrentPage('profile');
+      setViewingFromReviews(false);
+    } 
   };
 
   // Получаем роль пользователя при загрузке
@@ -299,6 +304,16 @@ function AppContent() {
     } catch (error) {
       console.error('Error fetching user role:', error);
     }
+  };
+
+  const getName = (userObj) => {
+    if (!userObj) return 'Пользователь';
+    if (userObj.first_name && userObj.last_name) {
+      return `${userObj.first_name} ${userObj.last_name}`;
+    }
+    if (userObj.first_name) return userObj.first_name;
+    if (userObj.username) return `@${userObj.username}`;
+    return 'Пользователь';
   };
 
   const handleTelegramAuthSuccess = (userData) => {
@@ -358,13 +373,16 @@ function AppContent() {
                        currentPage !== 'edit-ad' && 
                        currentPage !== 'moderation' &&
                        currentPage !== 'admin';
+                        currentPage !== 'all-reviews';
 
   // Определяем, откуда возвращаться из просмотра объявления
-  const getBackDestination = () => {
+ const getBackDestination = () => {
     if (viewingFromModeration) {
       return 'moderation';
     } else if (viewingFromProfile) {
       return 'profile';
+    } else if (viewingFromReviews) {
+      return 'profile'; // Возвращаем в профиль из отзывов
     } else {
       return 'home';
     }
@@ -440,6 +458,17 @@ function AppContent() {
       {currentPage === 'admin' && (
         <AdminPanel 
           onBack={() => setCurrentPage('profile')}
+        />
+      )}
+
+       {currentPage === 'all-reviews' && (
+        <AllReviews 
+          userId={user?.id}
+          userName={getName(user)}
+          onBack={() => {
+            setCurrentPage('profile');
+            setViewingFromReviews(false);
+          }}
         />
       )}
       

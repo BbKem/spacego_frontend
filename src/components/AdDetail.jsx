@@ -9,7 +9,6 @@ function AdDetail({ ad, onBack }) {
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false); // ← ДОБАВЛЯЕМ
   const [canReview, setCanReview] = useState(false); // ← ДОБАВЛЯЕМ
-  const [userReviews, setUserReviews] = useState([]); // ← ДОБАВЛЯЕМ
   const [userRating, setUserRating] = useState(null); // ← ДОБАВЛЯЕМ
 
   const API_BASE = import.meta.env.DEV 
@@ -32,7 +31,7 @@ function AdDetail({ ad, onBack }) {
     if (ad?.id) {
       checkIfFavorite();
       checkCanReview();
-      fetchUserReviews();
+      fetchUserRating();
     }
   }, [ad?.id, ad?.user_id]);
 
@@ -57,24 +56,28 @@ function AdDetail({ ad, onBack }) {
     }
   };
 
-  // Получаем отзывы пользователя
-  const fetchUserReviews = async () => {
-    try {
-      if (!ad?.user_id) return;
+  const fetchUserRating = async () => {
+  try {
+    if (!ad?.user_id) return;
 
-      const response = await fetch(`${API_BASE}/api/users/${ad.user_id}/reviews?limit=3`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setUserReviews(data.reviews);
-          setUserRating(data.stats);
-        }
+    const response = await fetch(`${API_BASE}/api/users/${ad.user_id}/reviews?limit=1`);
+    // Загружаем только статистику (рейтинг)
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        // Устанавливаем только рейтинг, без списка отзывов
+        setUserRating(data.stats || {
+          total: 0,
+          averageRating: '0.0',
+          distribution: {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
+        });
       }
-    } catch (error) {
-      console.error('Ошибка загрузки отзывов:', error);
     }
-  };
+  } catch (error) {
+    console.error('Ошибка загрузки рейтинга:', error);
+  }
+};
 
   // Функция проверки избранного
   const checkIfFavorite = async () => {
@@ -738,54 +741,6 @@ function AdDetail({ ad, onBack }) {
     );
   };
 
-  // Функция для отображения последних отзывов
-  const renderRecentReviews = () => {
-    if (!userReviews || userReviews.length === 0) {
-      return null;
-    }
-
-    return (
-      <div style={reviewsContainerStyle}>
-        <h4 style={reviewsTitleStyle}>Последние отзывы</h4>
-        {userReviews.slice(0, 2).map((review) => (
-          <div key={review.id} style={reviewItemStyle}>
-            <div style={reviewHeaderStyle}>
-              <div style={reviewerAvatarStyle}>
-                {review.reviewer_first_name?.[0]?.toUpperCase() || 'П'}
-              </div>
-              <div style={reviewerInfoStyle}>
-                <div style={reviewerNameStyle}>
-                  {review.reviewer_first_name || 'Пользователь'}
-                </div>
-                <div style={reviewMetaStyle}>
-                  {renderStars(review.rating, 12)}
-                  <span style={{ margin: '0 4px', color: '#6b7280' }}>•</span>
-                  <span style={{ fontSize: '11px', color: '#6b7280' }}>
-                    {new Date(review.created_at).toLocaleDateString('ru-RU')}
-                  </span>
-                </div>
-              </div>
-            </div>
-            {review.comment && (
-              <div style={reviewCommentStyle}>
-                {review.comment.length > 100 
-                  ? `${review.comment.substring(0, 100)}...` 
-                  : review.comment}
-              </div>
-            )}
-          </div>
-        ))}
-        {userReviews.length > 2 && (
-          <div style={moreReviewsStyle}>
-            <span style={{ fontSize: '12px', color: '#46A8C1' }}>
-              +{userReviews.length - 2} других отзывов
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const photos = getPhotos();
   const totalPhotos = photos.length;
   const hasLocation = ad?.location && ad.location.trim() !== '';
@@ -856,7 +811,7 @@ function AdDetail({ ad, onBack }) {
   const handleReviewSuccess = () => {
     alert('Спасибо за ваш отзыв!');
     checkCanReview();
-    fetchUserReviews();
+    fetchUserRating();
   };
 
   return (
@@ -1065,25 +1020,26 @@ function AdDetail({ ad, onBack }) {
               )}
               
               {/* Рейтинг продавца */}
-              <div style={sellerRatingStyle}>
-                {userRating ? (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {renderStars(parseFloat(userRating.averageRating) || 0, 14)}
-                      <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
-                        {userRating.averageRating || '0.0'}
-                      </span>
-                    </div>
-                    <span style={{ color: '#6b7280', fontSize: '12px' }}>
-                      • {userRating.total || 0} отзывов
-                    </span>
-                  </>
-                ) : (
-                  <span style={{ color: '#6b7280', fontSize: '12px' }}>
-                    Нет отзывов
-                  </span>
-                )}
-              </div>
+       <div style={sellerRatingStyle}>
+  {userRating && userRating.total > 0 ? (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        {renderStars(parseFloat(userRating.averageRating) || 0, 14)}
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
+          {userRating.averageRating || '0.0'}
+        </span>
+      </div>
+      <span style={{ color: '#6b7280', fontSize: '12px' }}>
+        на основе {userRating.total} {userRating.total === 1 ? 'отзыва' : 
+                                    userRating.total < 5 ? 'отзывов' : 'отзывов'}
+      </span>
+    </>
+  ) : (
+    <span style={{ color: '#6b7280', fontSize: '12px' }}>
+      Пока нет отзывов
+    </span>
+  )}
+</div>
             </div>
             
             {/* Кнопка перехода к профилю */}
@@ -1113,9 +1069,6 @@ function AdDetail({ ad, onBack }) {
               </p>
             </div>
           )}
-
-          {/* Последние отзывы */}
-          {renderRecentReviews()}
         </div>
       </div>
 
@@ -1636,83 +1589,6 @@ const reviewHintStyle = {
   color: '#6b7280',
   margin: 0,
   lineHeight: 1.4
-};
-
-const reviewsContainerStyle = {
-  backgroundColor: 'white',
-  borderRadius: '12px',
-  padding: '16px',
-  marginTop: '16px',
-  border: '1px solid #e5e7eb'
-};
-
-const reviewsTitleStyle = {
-  fontSize: '14px',
-  fontWeight: '600',
-  color: '#0d121b',
-  marginBottom: '12px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '4px'
-};
-
-const reviewItemStyle = {
-  padding: '12px 0',
-  borderBottom: '1px solid #f3f4f6'
-};
-
-const reviewHeaderStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-  marginBottom: '8px'
-};
-
-const reviewerAvatarStyle = {
-  width: '32px',
-  height: '32px',
-  borderRadius: '16px',
-  backgroundColor: '#46A8C1',
-  color: 'white',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  fontWeight: 'bold',
-  fontSize: '12px',
-  flexShrink: 0
-};
-
-const reviewerInfoStyle = {
-  flex: 1
-};
-
-const reviewerNameStyle = {
-  fontSize: '13px',
-  fontWeight: '500',
-  color: '#0d121b',
-  marginBottom: '2px'
-};
-
-const reviewMetaStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '4px',
-  fontSize: '11px'
-};
-
-const reviewCommentStyle = {
-  fontSize: '13px',
-  color: '#374151',
-  lineHeight: 1.4,
-  fontStyle: 'italic',
-  paddingLeft: '42px'
-};
-
-const moreReviewsStyle = {
-  textAlign: 'center',
-  paddingTop: '12px',
-  marginTop: '8px',
-  borderTop: '1px solid #f3f4f6'
 };
 
 const styleSheet = document.createElement('style');

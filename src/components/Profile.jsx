@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import AdCard from './AdCard';
 import SkeletonCard from './SkeletonCard';
-import UserReviews from './UserReviews'; // ← ДОБАВЛЯЕМ ИМПОРТ
+import UserReviews from './UserReviews';
 
 function Profile({ user, onBack, onViewAd, setCurrentPage }) {
   const [activeTab, setActiveTab] = useState('active');
@@ -13,6 +13,8 @@ function Profile({ user, onBack, onViewAd, setCurrentPage }) {
   const [showMenuForAd, setShowMenuForAd] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [userRole, setUserRole] = useState('user');
+    const [userRating, setUserRating] = useState(null);
+  const [reviewsCount, setReviewsCount] = useState(0);
 
   const API_BASE = import.meta.env.DEV
     ? 'http://localhost:4000'
@@ -22,6 +24,7 @@ function Profile({ user, onBack, onViewAd, setCurrentPage }) {
     fetchUserAds();
     fetchFavorites();
     fetchUserRole();
+    fetchUserRating();
   }, []);
 
   const fetchUserAds = async () => {
@@ -44,6 +47,21 @@ function Profile({ user, onBack, onViewAd, setCurrentPage }) {
       setIsLoading(false);
     }
   };
+
+  const fetchUserRating = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/users/${user.id}/reviews?limit=1`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        setUserRating(data.stats?.averageRating || '0.0');
+        setReviewsCount(data.stats?.total || 0);
+      }
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки рейтинга:', error);
+  }
+};
 
   const fetchFavorites = async () => {
     setIsFavoritesLoading(true);
@@ -83,6 +101,26 @@ function Profile({ user, onBack, onViewAd, setCurrentPage }) {
       console.error('Ошибка загрузки роли пользователя:', error);
     }
   };
+
+  const renderStars = (rating, size = 14) => {
+  const numericRating = parseFloat(rating) || 0;
+  return (
+    <div style={{ display: 'flex', gap: '1px' }}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <span
+          key={star}
+          className="material-symbols-outlined"
+          style={{
+            fontSize: size,
+            color: star <= numericRating ? '#f59e0b' : '#e5e7eb'
+          }}
+        >
+          {star <= numericRating ? 'star' : 'star'}
+        </span>
+      ))}
+    </div>
+  );
+};
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Недавно';
@@ -287,27 +325,51 @@ function Profile({ user, onBack, onViewAd, setCurrentPage }) {
           )}
         </div>
         <div style={profileInfoStyle}>
-          <h3 style={userNameStyle}>
-            {getName()}
-            {userRole !== 'user' && (
-              <span style={{
-                fontSize: 12,
-                backgroundColor: userRole === 'admin' ? '#dc2626' : '#8b5cf6',
-                color: 'white',
-                padding: '2px 8px',
-                borderRadius: 10,
-                marginLeft: 8,
-                fontWeight: 'normal'
-              }}>
-                {userRole === 'admin' ? 'Админ' : 'Модератор'}
-              </span>
-            )}
-          </h3>
-          {user.username && <p style={usernameStyle}>@{user.username}</p>}
-          <p style={registrationDateStyle}>
-            На Spacego с {formatDate(user.created_at)}
-          </p>
-        </div>
+  <h3 style={userNameStyle}>
+    {getName()}
+    {userRole !== 'user' && (
+      <span style={{
+        fontSize: 12,
+        backgroundColor: userRole === 'admin' ? '#dc2626' : '#8b5cf6',
+        color: 'white',
+        padding: '2px 8px',
+        borderRadius: 10,
+        marginLeft: 8,
+        fontWeight: 'normal'
+      }}>
+        {userRole === 'admin' ? 'Админ' : 'Модератор'}
+      </span>
+    )}
+  </h3>
+  {user.username && <p style={usernameStyle}>@{user.username}</p>}
+  <p style={registrationDateStyle}>
+    На Spacego с {formatDate(user.created_at)}
+  </p>
+  
+  {/* ДОБАВИТЬ ЭТОТ БЛОК: */}
+  <div style={ratingContainerStyle}>
+    <div style={ratingStarsStyle}>
+      {renderStars(userRating, 14)}
+      {userRating && userRating !== '0.0' ? (
+        <span style={ratingValueStyle}>{userRating}</span>
+      ) : null}
+    </div>
+    
+    {/* Кнопка перехода к отзывам */}
+    <button 
+      style={reviewsLinkStyle}
+      onClick={() => setCurrentPage('all-reviews')} // Будет создана позже
+    >
+      <span style={reviewsCountStyle}>
+        {reviewsCount} {reviewsCount === 1 ? 'отзыв' : 
+                        reviewsCount < 5 ? 'отзыва' : 'отзывов'}
+      </span>
+      <span className="material-symbols-outlined" style={arrowIconStyle}>
+        chevron_right
+      </span>
+    </button>
+  </div>
+</div>
       </div>
 
       {/* Moderator/Admin Panels */}
@@ -891,6 +953,52 @@ const statusBadgeStyle = {
   display: 'flex', 
   alignItems: 'center', 
   gap: 2 
+};
+
+const ratingContainerStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginTop: '8px',
+  paddingTop: '8px',
+  borderTop: '1px solid #eee'
+};
+
+const ratingStarsStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px'
+};
+
+const ratingValueStyle = {
+  fontSize: '14px',
+  fontWeight: 'bold',
+  color: '#0d121b',
+  marginLeft: '4px'
+};
+
+const reviewsLinkStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  padding: '4px 8px',
+  borderRadius: '6px',
+  transition: 'background-color 0.2s ease',
+  color: '#46A8C1'
+};
+
+const reviewsCountStyle = {
+  fontSize: '12px',
+  color: '#46A8C1',
+  fontWeight: '500'
+};
+
+const arrowIconStyle = {
+  fontSize: '16px',
+  marginLeft: '4px',
+  color: '#46A8C1'
 };
 
 const rejectedBadgeStyle = { 
