@@ -1,11 +1,16 @@
 // frontend/src/components/AdDetail.jsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import ReviewModal from './ReviewModal'; // ← ДОБАВЛЯЕМ ИМПОРТ
 
 function AdDetail({ ad, onBack }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState({});
   const [isFavorite, setIsFavorite] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false); // ← ДОБАВЛЯЕМ
+  const [canReview, setCanReview] = useState(false); // ← ДОБАВЛЯЕМ
+  const [userReviews, setUserReviews] = useState([]); // ← ДОБАВЛЯЕМ
+  const [userRating, setUserRating] = useState(null); // ← ДОБАВЛЯЕМ
 
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
@@ -26,8 +31,50 @@ function AdDetail({ ad, onBack }) {
   useEffect(() => {
     if (ad?.id) {
       checkIfFavorite();
+      checkCanReview();
+      fetchUserReviews();
     }
-  }, [ad?.id]);
+  }, [ad?.id, ad?.user_id]);
+
+  // Проверяем, может ли пользователь оставить отзыв
+  const checkCanReview = async () => {
+    try {
+      const initData = localStorage.getItem('telegram_init_data');
+      if (!initData || !ad?.user_id) return;
+
+      const response = await fetch(`${API_BASE}/api/users/${ad.user_id}/can-review`, {
+        headers: {
+          'telegram-init-data': initData
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCanReview(data.canReview);
+      }
+    } catch (error) {
+      console.error('Ошибка проверки возможности отзыва:', error);
+    }
+  };
+
+  // Получаем отзывы пользователя
+  const fetchUserReviews = async () => {
+    try {
+      if (!ad?.user_id) return;
+
+      const response = await fetch(`${API_BASE}/api/users/${ad.user_id}/reviews?limit=3`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setUserReviews(data.reviews);
+          setUserRating(data.stats);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки отзывов:', error);
+    }
+  };
 
   // Функция проверки избранного
   const checkIfFavorite = async () => {
@@ -143,7 +190,7 @@ function AdDetail({ ad, onBack }) {
       living_area: 'Жилая площадь',
       kitchen_area: 'Площадь кухни',
       property_type: 'Тип объекта',
-      room_type: 'Тип комнаты',
+      room_type: 'Тип комната',
       wall_material: 'Материал стен',
       sewage: 'Канализация',
       garage: 'Гараж',
@@ -671,6 +718,74 @@ function AdDetail({ ad, onBack }) {
     return 'Пользователь';
   };
 
+  // Функция для рендеринга звезд рейтинга
+  const renderStars = (rating, size = 14) => {
+    return (
+      <div style={{ display: 'flex', gap: '1px' }}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span
+            key={star}
+            className="material-symbols-outlined"
+            style={{
+              fontSize: size,
+              color: star <= rating ? '#f59e0b' : '#e5e7eb'
+            }}
+          >
+            star
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  // Функция для отображения последних отзывов
+  const renderRecentReviews = () => {
+    if (!userReviews || userReviews.length === 0) {
+      return null;
+    }
+
+    return (
+      <div style={reviewsContainerStyle}>
+        <h4 style={reviewsTitleStyle}>Последние отзывы</h4>
+        {userReviews.slice(0, 2).map((review) => (
+          <div key={review.id} style={reviewItemStyle}>
+            <div style={reviewHeaderStyle}>
+              <div style={reviewerAvatarStyle}>
+                {review.reviewer_first_name?.[0]?.toUpperCase() || 'П'}
+              </div>
+              <div style={reviewerInfoStyle}>
+                <div style={reviewerNameStyle}>
+                  {review.reviewer_first_name || 'Пользователь'}
+                </div>
+                <div style={reviewMetaStyle}>
+                  {renderStars(review.rating, 12)}
+                  <span style={{ margin: '0 4px', color: '#6b7280' }}>•</span>
+                  <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                    {new Date(review.created_at).toLocaleDateString('ru-RU')}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {review.comment && (
+              <div style={reviewCommentStyle}>
+                {review.comment.length > 100 
+                  ? `${review.comment.substring(0, 100)}...` 
+                  : review.comment}
+              </div>
+            )}
+          </div>
+        ))}
+        {userReviews.length > 2 && (
+          <div style={moreReviewsStyle}>
+            <span style={{ fontSize: '12px', color: '#46A8C1' }}>
+              +{userReviews.length - 2} других отзывов
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const photos = getPhotos();
   const totalPhotos = photos.length;
   const hasLocation = ad?.location && ad.location.trim() !== '';
@@ -736,6 +851,12 @@ function AdDetail({ ad, onBack }) {
       // Иначе обычная ссылка
       window.open(telegramUrl, '_blank');
     }
+  };
+
+  const handleReviewSuccess = () => {
+    alert('Спасибо за ваш отзыв!');
+    checkCanReview();
+    fetchUserReviews();
   };
 
   return (
@@ -943,13 +1064,25 @@ function AdDetail({ ad, onBack }) {
                 </div>
               )}
               
-              {/* Рейтинг и дата регистрации */}
+              {/* Рейтинг продавца */}
               <div style={sellerRatingStyle}>
-                <span className="material-symbols-outlined" style={{ color: '#f59e0b', fontSize: 14 }}>star</span>
-                <span style={{ fontWeight: 'bold', marginRight: 4 }}>4.8</span>
-                <span style={{ color: '#6b7280' }}>
-                  • На Spacego с {ad?.created_at ? new Date(ad.created_at).toLocaleDateString('ru-RU') : 'недавно'}
-                </span>
+                {userRating ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {renderStars(parseFloat(userRating.averageRating) || 0, 14)}
+                      <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                        {userRating.averageRating || '0.0'}
+                      </span>
+                    </div>
+                    <span style={{ color: '#6b7280', fontSize: '12px' }}>
+                      • {userRating.total || 0} отзывов
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ color: '#6b7280', fontSize: '12px' }}>
+                    Нет отзывов
+                  </span>
+                )}
               </div>
             </div>
             
@@ -964,25 +1097,44 @@ function AdDetail({ ad, onBack }) {
               <span className="material-symbols-outlined" style={{ color: '#46A8C1', fontSize: 20 }}>person</span>
             </button>
           </div>
+
+          {/* Кнопка оставить отзыв */}
+          {canReview && (
+            <div style={reviewButtonContainerStyle}>
+              <button 
+                style={reviewButtonStyle}
+                onClick={() => setShowReviewModal(true)}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16, marginRight: 4 }}>rate_review</span>
+                Оставить отзыв продавцу
+              </button>
+              <p style={reviewHintStyle}>
+                Помогите другим пользователям узнать больше об этом продавце
+              </p>
+            </div>
+          )}
+
+          {/* Последние отзывы */}
+          {renderRecentReviews()}
         </div>
       </div>
 
       {/* Footer */}
       <div style={detailFooterStyle}>
        <button 
-      style={footerButtonSecondaryStyle}
-      onClick={() => {
-    if (ad.user_username) {
-      // Открываем Telegram чат с пользователем с предзаполненным сообщением
-      openTelegramChat(ad.user_username, ad.title);
-    } else {
-      alert('У пользователя нет username в Telegram');
-    }
-  }}
->
-  <span className="material-symbols-outlined">chat_bubble</span>
-  <span>Написать в TG</span>
-</button>
+          style={footerButtonSecondaryStyle}
+          onClick={() => {
+            if (ad.user_username) {
+              // Открываем Telegram чат с пользователем с предзаполненным сообщением
+              openTelegramChat(ad.user_username, ad.title);
+            } else {
+              alert('У пользователя нет username в Telegram');
+            }
+          }}
+        >
+          <span className="material-symbols-outlined">chat_bubble</span>
+          <span>Написать в TG</span>
+        </button>
         
         <button 
           style={footerButtonPrimaryStyle}
@@ -1002,11 +1154,23 @@ function AdDetail({ ad, onBack }) {
           <span>Связаться</span>
         </button>
       </div>
+
+      {/* Модальное окно отзыва */}
+      {showReviewModal && (
+        <ReviewModal
+          user={JSON.parse(localStorage.getItem('telegram_user'))}
+          revieweeId={ad.user_id}
+          revieweeName={getNameFromTelegram(ad)}
+          onClose={() => setShowReviewModal(false)}
+          onSuccess={handleReviewSuccess}
+        />
+      )}
     </div>
   );
 }
 
-// Стили
+// ========== СТИЛИ (добавляем новые стили для отзывов) ==========
+
 const detailPageStyle = {
   backgroundColor: '#f6f6f8',
   minHeight: '100vh',
@@ -1367,7 +1531,7 @@ const sellerNameStyle = {
 const sellerRatingStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: 4,
+  gap: 8,
   fontSize: '14px',
   color: '#6b7280',
   marginTop: '4px'
@@ -1442,6 +1606,113 @@ const profileButtonStyle = {
   height: 40,
   borderRadius: 20,
   transition: 'background-color 0.2s ease'
+};
+
+// ========== НОВЫЕ СТИЛИ ДЛЯ ОТЗЫВОВ ==========
+
+const reviewButtonContainerStyle = {
+  marginTop: '16px',
+  textAlign: 'center'
+};
+
+const reviewButtonStyle = {
+  padding: '10px 20px',
+  backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  color: '#d97706',
+  border: '1px solid rgba(245, 158, 11, 0.3)',
+  borderRadius: '8px',
+  fontSize: '14px',
+  fontWeight: '500',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  transition: 'all 0.2s ease',
+  marginBottom: '8px'
+};
+
+const reviewHintStyle = {
+  fontSize: '12px',
+  color: '#6b7280',
+  margin: 0,
+  lineHeight: 1.4
+};
+
+const reviewsContainerStyle = {
+  backgroundColor: 'white',
+  borderRadius: '12px',
+  padding: '16px',
+  marginTop: '16px',
+  border: '1px solid #e5e7eb'
+};
+
+const reviewsTitleStyle = {
+  fontSize: '14px',
+  fontWeight: '600',
+  color: '#0d121b',
+  marginBottom: '12px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px'
+};
+
+const reviewItemStyle = {
+  padding: '12px 0',
+  borderBottom: '1px solid #f3f4f6'
+};
+
+const reviewHeaderStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  marginBottom: '8px'
+};
+
+const reviewerAvatarStyle = {
+  width: '32px',
+  height: '32px',
+  borderRadius: '16px',
+  backgroundColor: '#46A8C1',
+  color: 'white',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  fontWeight: 'bold',
+  fontSize: '12px',
+  flexShrink: 0
+};
+
+const reviewerInfoStyle = {
+  flex: 1
+};
+
+const reviewerNameStyle = {
+  fontSize: '13px',
+  fontWeight: '500',
+  color: '#0d121b',
+  marginBottom: '2px'
+};
+
+const reviewMetaStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px',
+  fontSize: '11px'
+};
+
+const reviewCommentStyle = {
+  fontSize: '13px',
+  color: '#374151',
+  lineHeight: 1.4,
+  fontStyle: 'italic',
+  paddingLeft: '42px'
+};
+
+const moreReviewsStyle = {
+  textAlign: 'center',
+  paddingTop: '12px',
+  marginTop: '8px',
+  borderTop: '1px solid #f3f4f6'
 };
 
 const styleSheet = document.createElement('style');

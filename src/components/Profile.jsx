@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import AdCard from './AdCard';
 import SkeletonCard from './SkeletonCard';
+import UserReviews from './UserReviews'; // ← ДОБАВЛЯЕМ ИМПОРТ
 
 function Profile({ user, onBack, onViewAd, setCurrentPage }) {
   const [activeTab, setActiveTab] = useState('active');
@@ -351,6 +352,14 @@ function Profile({ user, onBack, onViewAd, setCurrentPage }) {
         </div>
       </div>
 
+      {/* ========== ВСТАВЛЯЕМ КОМПОНЕНТ ОТЗЫВОВ ЗДЕСЬ ========== */}
+      <div style={{ padding: '0 16px', marginBottom: '16px' }}>
+        <UserReviews 
+          userId={user.id} 
+          userName={getName()} 
+        />
+      </div>
+
       {/* Tabs */}
       <div style={tabsContainerStyle}>
         <button style={activeTab === 'active' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('active')}>
@@ -506,7 +515,7 @@ function Profile({ user, onBack, onViewAd, setCurrentPage }) {
   );
 }
 
-// Стили
+// Стили (остаются без изменений)
 const pageStyle = { 
   backgroundColor: '#f6f6f8', 
   minHeight: '100vh', 
