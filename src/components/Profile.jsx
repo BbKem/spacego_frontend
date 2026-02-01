@@ -59,7 +59,7 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
         console.error('❌ No "user" field in initData');
       }
     } catch (e) {
-      console.error('❌ Error parsing user data:', e);
+      console.error('❌ Error parsing user ', e);
     }
   } else {
     console.error('❌ No telegram_init_data in localStorage');
