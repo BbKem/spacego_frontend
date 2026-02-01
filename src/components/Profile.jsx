@@ -310,8 +310,8 @@ function Profile({ user, onBack, onViewAd, setCurrentPage }) {
       </div>
 
       {/* Moderator/Admin Panels */}
-      {userRole === 'moderator' && (
-        <div style={{ padding: '0 16px 16px' }}>
+      {(userRole === 'moderator' || userRole === 'admin') && (
+        <div style={{ padding: '0 16px 8px' }}>
           <button style={moderationButtonStyle} onClick={() => setCurrentPage('moderation')}>
             <span className="material-symbols-outlined" style={{ marginRight: 8 }}>admin_panel_settings</span>
             Панель модератора
@@ -616,7 +616,7 @@ const moderationButtonStyle = {
   display: 'flex', 
   alignItems: 'center', 
   justifyContent: 'center', 
-  marginBottom: '12px' 
+  marginBottom: '8px' 
 };
 
 const adminButtonStyle = { 
