@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import AdCard from './AdCard';
 import SkeletonCard from './SkeletonCard';
 
-function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
+function Profile({ user, onBack, onViewAd, setCurrentPage }) {
   const [activeTab, setActiveTab] = useState('active');
   const [userAds, setUserAds] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -18,107 +18,31 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     : 'https://spacego-backend.onrender.com';
 
   useEffect(() => {
-    console.log('Profile: Запуск загрузки данных');
     fetchUserAds();
     fetchFavorites();
     fetchUserRole();
   }, []);
 
   const fetchUserAds = async () => {
-  console.log('=== fetchUserAds DEBUG ===');
-  
-  // 🔴 ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ ДАННЫХ АВТОРИЗАЦИИ
-  const initData = localStorage.getItem('telegram_init_data');
-  console.log('telegram_init_data from localStorage (first 300 chars):', initData?.substring(0, 300));
-  
-  // Парсим и логируем реальный telegram_id
-  if (initData) {
+    setIsLoading(true);
     try {
-      const params = new URLSearchParams(initData);
-      const userStr = params.get('user');
-      
-      if (userStr) {
-        const decodedUserStr = decodeURIComponent(userStr);
-        console.log('Decoded user string:', decodedUserStr);
-        
-        const userData = JSON.parse(decodedUserStr);
-        console.log('Parsed user data:', userData);
-        console.log('telegram_id:', userData.id, 'Type:', typeof userData.id);
-        console.log('username:', userData.username);
-        console.log('first_name:', userData.first_name);
-        
-        // Проверяем, не превышает ли ID безопасное значение
-        if (typeof userData.id === 'number') {
-          console.log('⚠️ telegram_id is NUMBER - potential precision issue!');
-          console.log('Number.MAX_SAFE_INTEGER:', Number.MAX_SAFE_INTEGER);
-          console.log('Is safe:', Math.abs(userData.id) <= Number.MAX_SAFE_INTEGER);
-        } else {
-          console.log('✅ telegram_id is STRING - safe!');
-        }
-      } else {
-        console.error('❌ No "user" field in initData');
-      }
-    } catch (e) {
-      console.error('❌ Error parsing user data:', e);
-    }
-  } else {
-    console.error('❌ No telegram_init_data in localStorage');
-  }
-  
-  console.log('fetchUserAds: Начало загрузки');
-  setIsLoading(true);
-  
-  try {
-    if (!initData) {
-      console.log('fetchUserAds: Нет данных авторизации');
-      return;
-    }
+      const initData = localStorage.getItem('telegram_init_data');
+      if (!initData) return;
 
-    const response = await fetch(`${API_BASE}/api/my-ads`, {
-      headers: { 'telegram-init-data': initData }
-    });
-
-    console.log('fetchUserAds: Ответ сервера', response.status);
-    console.log('fetchUserAds: Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('fetchUserAds: Получено объявлений', data.length);
-      console.log('fetchUserAds: Все объявления:', data);
-      
-      // Проверяем структуру каждого объявления
-      data.forEach((ad, index) => {
-        console.log(`Объявление ${index + 1}:`, {
-          id: ad.id,
-          user_id: ad.user_id,
-          title: ad.title,
-          status: ad.status,
-          is_archived: ad.is_archived,
-          status_type: typeof ad.status,
-          is_archived_type: typeof ad.is_archived
-        });
+      const response = await fetch(`${API_BASE}/api/my-ads`, {
+        headers: { 'telegram-init-data': initData }
       });
-      
-      setUserAds(data);
-    } else {
-      const errorText = await response.text();
-      console.error('fetchUserAds: Ошибка загрузки', response.status, errorText);
-      
-      // Попробуем получить дополнительную информацию
-      if (response.status === 401) {
-        console.error('❌ 401 Unauthorized - пользователь не найден на бэкенде');
-      } else if (response.status === 500) {
-        console.error('❌ 500 Server Error - ошибка на сервере');
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserAds(data);
       }
+    } catch (error) {
+      console.error('Ошибка загрузки объявлений:', error);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('fetchUserAds: Исключение', error);
-    console.error('fetchUserAds: Stack trace:', error.stack);
-  } finally {
-    setIsLoading(false);
-    console.log('fetchUserAds: Завершено');
-  }
-};
+  };
 
   const fetchFavorites = async () => {
     setIsFavoritesLoading(true);
@@ -184,11 +108,8 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     return 'Пользователь';
   };
 
-  // Функции фильтрации с подробным логированием
   const isArchived = (ad) => {
-    // Проверяем все возможные варианты значения is_archived
     const isArchivedValue = ad.is_archived;
-    console.log(`isArchived для ${ad.id}: значение=${isArchivedValue}, тип=${typeof isArchivedValue}`);
     
     if (isArchivedValue === true || isArchivedValue === 'true' || isArchivedValue === 1) {
       return true;
@@ -205,33 +126,22 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
   const isActive = (ad) => {
     const status = ad.status;
     const archived = isArchived(ad);
-    const result = status === 'approved' && !archived;
-    
-    console.log(`isActive для ${ad.id}: status=${status}, isArchived=${archived}, result=${result}`);
-    return result;
+    return status === 'approved' && !archived;
   };
   
   const isPending = (ad) => {
     const status = ad.status;
     const archived = isArchived(ad);
-    const result = status === 'pending' && !archived;
-    
-    console.log(`isPending для ${ad.id}: status=${status}, isArchived=${archived}, result=${result}`);
-    return result;
+    return status === 'pending' && !archived;
   };
   
   const isRejected = (ad) => {
     const status = ad.status;
     const archived = isArchived(ad);
-    const result = status === 'rejected' && !archived;
-    
-    console.log(`isRejected для ${ad.id}: status=${status}, isArchived=${archived}, result=${result}`);
-    return result;
+    return status === 'rejected' && !archived;
   };
 
   const getCurrentAds = () => {
-    console.log(`getCurrentAds: activeTab=${activeTab}, всего объявлений=${userAds.length}`);
-    
     let result;
     switch (activeTab) {
       case 'active':
@@ -253,7 +163,6 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
         result = [];
     }
     
-    console.log(`getCurrentAds: найдено ${result.length} объявлений для вкладки ${activeTab}`);
     return result;
   };
 
@@ -354,33 +263,6 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
     setShowMenuForAd(null);
   };
 
-  // Функция для подсчета статистики
-  const getAdsCountByStatus = () => {
-    console.log('getAdsCountByStatus: Начало подсчета');
-    
-    const active = userAds.filter(isActive).length;
-    const pending = userAds.filter(isPending).length;
-    const archived = userAds.filter(isArchived).length;
-    const rejected = userAds.filter(isRejected).length;
-    
-    console.log('getAdsCountByStatus: Результаты', {
-      active,
-      pending,
-      archived,
-      rejected,
-      total: userAds.length
-    });
-    
-    return { active, pending, archived, rejected };
-  };
-
-  const getPendingCount = () => {
-    return userAds.filter(isPending).length;
-  };
-
-  // Обновляем счетчики при каждом рендере
-  const counts = getAdsCountByStatus();
-  const isModeratorOrAdmin = userRole === 'moderator' || userRole === 'admin';
   const handleAdClick = (ad) => onViewAd(ad);
 
   return (
@@ -428,89 +310,45 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
       </div>
 
       {/* Moderator/Admin Panels */}
-      {isModeratorOrAdmin && (
-        <>
-          <div style={{ padding: '0 16px 8px' }}>
-            <button style={moderationButtonStyle} onClick={() => setCurrentPage('moderation')}>
-              <span className="material-symbols-outlined" style={{ marginRight: 8 }}>admin_panel_settings</span>
-              Панель модератора
-            </button>
-          </div>
-          {userRole === 'admin' && (
-            <div style={{ padding: '0 16px 16px' }}>
-              <button style={adminButtonStyle} onClick={() => setCurrentPage('admin')}>
-                <span className="material-symbols-outlined" style={{ marginRight: 8 }}>supervisor_account</span>
-                Панель администратора
-              </button>
-            </div>
-          )}
-        </>
+      {userRole === 'moderator' && (
+        <div style={{ padding: '0 16px 16px' }}>
+          <button style={moderationButtonStyle} onClick={() => setCurrentPage('moderation')}>
+            <span className="material-symbols-outlined" style={{ marginRight: 8 }}>admin_panel_settings</span>
+            Панель модератора
+          </button>
+        </div>
       )}
-
-      {/* Кнопка обновления */}
-      <div style={{ padding: '0 16px 8px' }}>
-        <button 
-          style={refreshButtonStyle}
-          onClick={fetchUserAds}
-          disabled={isLoading}
-        >
-          <span 
-            className="material-symbols-outlined"
-            style={{ 
-              marginRight: 8, 
-              animation: isLoading ? 'spin 1s linear infinite' : 'none' 
-            }}
-          >
-            refresh
-          </span>
-          {isLoading ? 'Обновление...' : 'Обновить данные'}
-        </button>
-      </div>
+      {userRole === 'admin' && (
+        <div style={{ padding: '0 16px 16px' }}>
+          <button style={adminButtonStyle} onClick={() => setCurrentPage('admin')}>
+            <span className="material-symbols-outlined" style={{ marginRight: 8 }}>supervisor_account</span>
+            Панель администратора
+          </button>
+        </div>
+      )}
 
       {/* Статистика */}
       <div style={statsContainerStyle}>
         <div style={statItemStyle}>
-          <div style={statNumberStyle}>{counts.active}</div>
+          <div style={statNumberStyle}>{userAds.filter(isActive).length}</div>
           <div style={statLabelStyle}>Активные</div>
         </div>
         <div style={statItemStyle}>
-          <div style={statNumberStyle}>{counts.pending}</div>
+          <div style={statNumberStyle}>{userAds.filter(isPending).length}</div>
           <div style={statLabelStyle}>На проверке</div>
         </div>
         <div style={statItemStyle}>
-          <div style={statNumberStyle}>{counts.archived}</div>
+          <div style={statNumberStyle}>{userAds.filter(isArchived).length}</div>
           <div style={statLabelStyle}>Архив</div>
         </div>
         <div style={statItemStyle}>
-          <div style={statNumberStyle}>{counts.rejected}</div>
+          <div style={statNumberStyle}>{userAds.filter(isRejected).length}</div>
           <div style={statLabelStyle}>Отклонено</div>
         </div>
         <div style={statItemStyle}>
           <div style={statNumberStyle}>{favorites.length}</div>
           <div style={statLabelStyle}>Избранное</div>
         </div>
-      </div>
-
-      {/* Панель отладки */}
-      <div style={{ padding: '0 16px 8px' }}>
-        <details style={debugStyle}>
-          <summary style={debugSummaryStyle}>Отладочная информация (нажмите для просмотра)</summary>
-          <div style={debugContentStyle}>
-            <p><strong>Всего объявлений:</strong> {userAds.length}</p>
-            <p><strong>Текущая вкладка:</strong> {activeTab}</p>
-            <p><strong>Показано объявлений:</strong> {getCurrentAds().length}</p>
-            <p><strong>Статистика:</strong> Активные={counts.active}, На проверке={counts.pending}, Архив={counts.archived}, Отклонено={counts.rejected}</p>
-            <p><strong>Примеры данных:</strong></p>
-            <div style={debugAdsStyle}>
-              {userAds.slice(0, 3).map((ad, index) => (
-                <div key={index} style={debugAdItemStyle}>
-                  <p><strong>Объявление {index + 1}:</strong> {ad.title}</p>
-                  <p><small>ID: {ad.id}, Status: {ad.status}, is_archived: {String(ad.is_archived)}</small></p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </details>
       </div>
 
       {/* Tabs */}
@@ -520,14 +358,12 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
         </button>
         <button style={activeTab === 'pending' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('pending')}>
           На проверке
-          {counts.pending > 0 && <span style={badgeStyle}>{counts.pending}</span>}
         </button>
         <button style={activeTab === 'archived' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('archived')}>
           Архив
         </button>
         <button style={activeTab === 'rejected' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('rejected')}>
           Отклонено
-          {counts.rejected > 0 && <span style={badgeStyle}>{counts.rejected}</span>}
         </button>
         <button style={activeTab === 'favorites' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('favorites')}>
           Избранное
@@ -666,14 +502,6 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
           </div>
         )}
       </div>
-
-      {/* Logout */}
-      <div style={logoutContainerStyle}>
-        <button style={logoutButtonStyle} onClick={onLogout}>
-          <span className="material-symbols-outlined" style={{ marginRight: 8 }}>logout</span>
-          Выйти
-        </button>
-      </div>
     </div>
   );
 }
@@ -788,7 +616,7 @@ const moderationButtonStyle = {
   display: 'flex', 
   alignItems: 'center', 
   justifyContent: 'center', 
-  marginBottom: '8px' 
+  marginBottom: '12px' 
 };
 
 const adminButtonStyle = { 
@@ -805,23 +633,6 @@ const adminButtonStyle = {
   alignItems: 'center', 
   justifyContent: 'center', 
   marginBottom: '12px' 
-};
-
-const refreshButtonStyle = {
-  width: '100%',
-  padding: '10px',
-  backgroundColor: '#f0f0f0',
-  color: '#46A8C1',
-  border: '1px solid #e0e0e0',
-  borderRadius: '8px',
-  fontSize: 14,
-  fontWeight: '500',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginBottom: '8px',
-  transition: 'all 0.2s ease'
 };
 
 const statsContainerStyle = { 
@@ -854,39 +665,6 @@ const statLabelStyle = {
   color: '#6b7280' 
 };
 
-const debugStyle = {
-  backgroundColor: '#f8f9fa',
-  border: '1px solid #e9ecef',
-  borderRadius: '8px',
-  marginBottom: '12px'
-};
-
-const debugSummaryStyle = {
-  padding: '8px 12px',
-  cursor: 'pointer',
-  fontWeight: '500',
-  color: '#666',
-  outline: 'none'
-};
-
-const debugContentStyle = {
-  padding: '12px',
-  borderTop: '1px solid #e9ecef',
-  fontSize: '12px',
-  color: '#555'
-};
-
-const debugAdsStyle = {
-  marginTop: '8px'
-};
-
-const debugAdItemStyle = {
-  backgroundColor: '#f0f0f0',
-  padding: '8px',
-  borderRadius: '4px',
-  marginBottom: '8px'
-};
-
 const tabsContainerStyle = {
   display: 'flex',
   flexWrap: 'wrap',
@@ -906,29 +684,13 @@ const tabStyle = {
   fontSize: 12,
   fontWeight: '500',
   cursor: 'pointer',
-  transition: 'all 0.2s ease',
-  position: 'relative'
+  transition: 'all 0.2s ease'
 };
 
 const tabActiveStyle = { 
   ...tabStyle, 
   color: '#46A8C1', 
   borderBottom: '3px solid #46A8C1' 
-};
-
-const badgeStyle = {
-  position: 'absolute',
-  top: '-5px',
-  right: '-5px',
-  backgroundColor: '#ef4444',
-  color: 'white',
-  fontSize: 10,
-  width: '18px',
-  height: '18px',
-  borderRadius: '9px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center'
 };
 
 const contentStyle = { 
@@ -1106,27 +868,6 @@ const createAdButtonStyle = {
   justifyContent: 'center' 
 };
 
-const logoutContainerStyle = { 
-  padding: '16px', 
-  borderTop: '1px solid #eee', 
-  backgroundColor: 'white' 
-};
-
-const logoutButtonStyle = { 
-  width: '100%', 
-  padding: '12px', 
-  backgroundColor: '#fee2e2', 
-  color: '#dc2626', 
-  border: 'none', 
-  borderRadius: '8px', 
-  fontSize: 16, 
-  fontWeight: '500', 
-  cursor: 'pointer', 
-  display: 'flex', 
-  justifyContent: 'center', 
-  alignItems: 'center' 
-};
-
 const statusBadgeStyle = { 
   position: 'absolute', 
   top: 8, 
@@ -1152,22 +893,5 @@ const archivedBadgeStyle = {
   ...statusBadgeStyle, 
   backgroundColor: 'rgba(107, 114, 128, 0.9)' 
 };
-
-// Добавляем стили для анимации
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  details[open] summary {
-    margin-bottom: 8px;
-  }
-`;
-if (!document.head.querySelector('style[data-profile-spinner]')) {
-  styleSheet.setAttribute('data-profile-spinner', 'true');
-  document.head.appendChild(styleSheet);
-}
 
 export default Profile;
