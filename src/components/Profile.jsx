@@ -15,7 +15,7 @@ function Profile({ user, onBack, onViewAd, onLogout, setCurrentPage }) {
 
   const API_BASE = import.meta.env.DEV
     ? 'http://localhost:4000'
-    : 'https://spacego-backend.onrender.com    ';
+    : 'https://spacego-backend.onrender.com';
 
   useEffect(() => {
     console.log('Profile: Запуск загрузки данных');
