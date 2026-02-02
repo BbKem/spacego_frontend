@@ -414,14 +414,6 @@ function Profile({ user, onBack, onViewAd, setCurrentPage }) {
         </div>
       </div>
 
-      {/* ========== ВСТАВЛЯЕМ КОМПОНЕНТ ОТЗЫВОВ ЗДЕСЬ ========== */}
-      <div style={{ padding: '0 16px', marginBottom: '16px' }}>
-        <UserReviews 
-          userId={user.id} 
-          userName={getName()} 
-        />
-      </div>
-
       {/* Tabs */}
       <div style={tabsContainerStyle}>
         <button style={activeTab === 'active' ? tabActiveStyle : tabStyle} onClick={() => setActiveTab('active')}>
