@@ -11,6 +11,7 @@ import EditAd from './components/EditAd'
 import ModerationPanel from './components/ModerationPanel'
 import AdminPanel from './components/AdminPanel'
 import AllReviews from './components/AllReviews'
+import SellerProfile from './components/SellerProfile';
 
 const AppCacheContext = createContext()
 
@@ -173,6 +174,7 @@ function AppContent() {
   const [viewingFromModeration, setViewingFromModeration] = useState(false);
   const [viewingFromProfile, setViewingFromProfile] = useState(false);
    const [viewingFromReviews, setViewingFromReviews] = useState(false);
+   const [selectedSellerId, setSelectedSellerId] = useState(null);
 
   // ========== ДОБАВЛЕНО: ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP ==========
   useEffect(() => {
@@ -325,7 +327,7 @@ function AppContent() {
   const handleLogout = () => {
     localStorage.removeItem('telegram_user');
     localStorage.removeItem('telegram_init_data');
-    localStorage.removeItem('editing_ad'); // Очищаем при выходе
+    localStorage.removeItem('editing_ad'); 
     setUser(null);
     setUserRole('user');
     setCurrentPage('home');
@@ -411,12 +413,14 @@ function AppContent() {
           setCurrentPage={setCurrentPage}
         />
       )}
-      {currentPage === 'ad-detail' && (
-        <AdDetail 
-          ad={selectedAd} 
-          onBack={() => setCurrentPage(getBackDestination())} 
-        />
-      )}
+   {currentPage === 'ad-detail' && (
+  <AdDetail 
+    ad={selectedAd} 
+    onBack={() => setCurrentPage(getBackDestination())}
+    setCurrentPage={setCurrentPage}
+    setSelectedSellerId={setSelectedSellerId}
+  />
+)}
       {currentPage === 'create-ad' && (
         <CreateAd 
           onBack={() => setCurrentPage('home')} 
@@ -471,6 +475,17 @@ function AppContent() {
           }}
         />
       )}
+
+      {currentPage === 'seller-profile' && (
+  <SellerProfile 
+    sellerId={selectedSellerId}
+    onBack={() => {
+      setCurrentPage('ad-detail');
+    }}
+    setCurrentPage={setCurrentPage}
+    setSelectedAd={setSelectedAd}
+  />
+)}
       
       {showBottomNav && (
         <BottomNav 

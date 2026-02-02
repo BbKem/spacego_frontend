@@ -1,15 +1,15 @@
 // frontend/src/components/AdDetail.jsx
 import React, { useState, useEffect } from 'react';
-import ReviewModal from './ReviewModal'; // ← ДОБАВЛЯЕМ ИМПОРТ
+import ReviewModal from './ReviewModal'; 
 
-function AdDetail({ ad, onBack }) {
+function AdDetail({ ad, onBack,setCurrentPage, setSelectedSellerId }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState({});
   const [isFavorite, setIsFavorite] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false); // ← ДОБАВЛЯЕМ
-  const [canReview, setCanReview] = useState(false); // ← ДОБАВЛЯЕМ
-  const [userRating, setUserRating] = useState(null); // ← ДОБАВЛЯЕМ
+  const [showReviewModal, setShowReviewModal] = useState(false); 
+  const [canReview, setCanReview] = useState(false); 
+  const [userRating, setUserRating] = useState(null); 
 
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
@@ -53,6 +53,13 @@ function AdDetail({ ad, onBack }) {
       }
     } catch (error) {
       console.error('Ошибка проверки возможности отзыва:', error);
+    }
+  };
+
+    const handleViewSellerProfile = () => {
+    if (ad.user_id && setSelectedSellerId && setCurrentPage) {
+      setSelectedSellerId(ad.user_id);
+      setCurrentPage('seller-profile');
     }
   };
 
@@ -1044,14 +1051,12 @@ function AdDetail({ ad, onBack }) {
             
             {/* Кнопка перехода к профилю */}
             <button 
-              style={profileButtonStyle}
-              onClick={() => {
-                // Можно сделать переход к профилю продавца
-                console.log('Переход к профилю пользователя:', ad.user_id);
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ color: '#46A8C1', fontSize: 20 }}>person</span>
-            </button>
+    style={profileButtonStyle}
+    onClick={handleViewSellerProfile}
+    title="Перейти к профилю продавца"
+  >
+    <span className="material-symbols-outlined" style={{ color: '#46A8C1', fontSize: 20 }}>person</span>
+  </button>
           </div>
 
           {/* Кнопка оставить отзыв */}
