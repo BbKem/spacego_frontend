@@ -5,7 +5,6 @@ import UserReviews from './UserReviews';
 
 function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
   const [seller, setSeller] = useState(null);
-  const [allAds, setAllAds] = useState([]);
   const [sellerAds, setSellerAds] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -14,10 +13,10 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
     : 'https://spacego-backend.onrender.com';
 
   useEffect(() => {
-    fetchAllData();
+    fetchSellerData();
   }, [sellerId]);
 
-  const fetchAllData = async () => {
+  const fetchSellerData = async () => {
     setLoading(true);
     try {
       // 1. Получаем информацию о продавце
@@ -27,31 +26,8 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
       if (sellerData.success) {
         setSeller(sellerData.user);
         
-        // 2. Получаем ВСЕ объявления (без фильтров)
-        const adsResponse = await fetch(`${API_BASE}/api/ads`);
-        const allAdsData = await adsResponse.json();
-        setAllAds(allAdsData);
-        
-        // 3. Фильтруем на фронтенде
-        const filteredAds = allAdsData.filter(ad => {
-          // Проверяем, что объявление принадлежит продавцу
-          const isSellerAd = ad.user_id && ad.user_id.toString() === sellerId.toString();
-          
-          // Проверяем статус и архив
-          const isActive = ad.status === 'approved' && 
-                         (ad.is_archived === false || ad.is_archived === null || ad.is_archived === undefined);
-          
-          return isSellerAd && isActive;
-        });
-        
-        console.log('Filtered seller ads:', {
-          sellerId,
-          allAdsCount: allAdsData.length,
-          filteredCount: filteredAds.length,
-          filteredAds: filteredAds.map(ad => ({ id: ad.id, title: ad.title, user_id: ad.user_id }))
-        });
-        
-        setSellerAds(filteredAds);
+        // 2. Получаем объявления продавца с отдельного эндпоинта
+        await fetchSellerAds(sellerData.user.id);
       } else {
         console.error('Failed to fetch seller:', sellerData);
       }
@@ -59,6 +35,49 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
       console.error('Ошибка загрузки данных продавца:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSellerAds = async (userId) => {
+    try {
+      // Используем тот же эндпоинт, что и для своих объявлений,
+      // но с фильтрацией по user_id на фронтенде
+      const response = await fetch(`${API_BASE}/api/ads`);
+      
+      if (response.ok) {
+        const allAds = await response.json();
+        
+        // Фильтруем объявления на фронтенде:
+        // 1. Принадлежат нужному пользователю
+        // 2. Активные (approved)
+        // 3. Не в архиве
+        const filteredAds = allAds.filter(ad => {
+          return (
+            ad.user_id === userId && // Объявление принадлежит продавцу
+            ad.status === 'approved' && // Одобрено модератором
+            !ad.is_archived && // Не в архиве
+            ad.user_id !== null // user_id не null
+          );
+        });
+        
+        console.log('Seller ads filtered:', {
+          userId,
+          allAdsCount: allAds.length,
+          filteredCount: filteredAds.length,
+          filteredAds: filteredAds.map(ad => ({ 
+            id: ad.id, 
+            title: ad.title, 
+            user_id: ad.user_id,
+            status: ad.status,
+            is_archived: ad.is_archived
+          }))
+        });
+        
+        setSellerAds(filteredAds);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки объявлений продавца:', error);
+      setSellerAds([]);
     }
   };
 
