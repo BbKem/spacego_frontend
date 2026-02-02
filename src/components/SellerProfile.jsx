@@ -7,6 +7,7 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
   const [seller, setSeller] = useState(null);
   const [sellerAds, setSellerAds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const API_BASE = import.meta.env.DEV 
     ? 'http://localhost:4000' 
@@ -18,21 +19,29 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
 
   const fetchSellerData = async () => {
     setLoading(true);
+    setError(null);
+    
     try {
       // 1. Получаем информацию о продавце
       const sellerResponse = await fetch(`${API_BASE}/api/user/${sellerId}`);
+      
+      if (!sellerResponse.ok) {
+        throw new Error(`Ошибка HTTP: ${sellerResponse.status}`);
+      }
+      
       const sellerData = await sellerResponse.json();
       
       if (sellerData.success) {
         setSeller(sellerData.user);
         
-        // 2. Получаем объявления продавца с отдельного эндпоинта
+        // 2. Получаем объявления продавца через специальный эндпоинт
         await fetchSellerAds(sellerData.user.id);
       } else {
-        console.error('Failed to fetch seller:', sellerData);
+        throw new Error(sellerData.error || 'Не удалось загрузить данные продавца');
       }
     } catch (error) {
       console.error('Ошибка загрузки данных продавца:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -40,45 +49,38 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
 
   const fetchSellerAds = async (userId) => {
     try {
-      // Используем тот же эндпоинт, что и для своих объявлений,
-      // но с фильтрацией по user_id на фронтенде
-      const response = await fetch(`${API_BASE}/api/ads`);
+      console.log('Загрузка объявлений для пользователя ID:', userId);
       
-      if (response.ok) {
-        const allAds = await response.json();
-        
-        // Фильтруем объявления на фронтенде:
-        // 1. Принадлежат нужному пользователю
-        // 2. Активные (approved)
-        // 3. Не в архиве
-        const filteredAds = allAds.filter(ad => {
-          return (
-            ad.user_id === userId && // Объявление принадлежит продавцу
-            ad.status === 'approved' && // Одобрено модератором
-            !ad.is_archived && // Не в архиве
-            ad.user_id !== null // user_id не null
-          );
-        });
-        
-        console.log('Seller ads filtered:', {
-          userId,
-          allAdsCount: allAds.length,
-          filteredCount: filteredAds.length,
-          filteredAds: filteredAds.map(ad => ({ 
-            id: ad.id, 
-            title: ad.title, 
-            user_id: ad.user_id,
-            status: ad.status,
-            is_archived: ad.is_archived
-          }))
-        });
-        
-        setSellerAds(filteredAds);
+      const response = await fetch(`${API_BASE}/api/users/${userId}/ads`);
+      
+      if (!response.ok) {
+        throw new Error(`Ошибка HTTP: ${response.status}`);
       }
+      
+      const adsData = await response.json();
+      
+      console.log('Получены объявления продавца:', {
+        userId,
+        adsCount: adsData.length,
+        ads: adsData.map(ad => ({ 
+          id: ad.id, 
+          title: ad.title, 
+          user_id: ad.user_id,
+          status: ad.status,
+          is_archived: ad.is_archived,
+          photo_urls: ad.photo_urls?.length || 0
+        }))
+      });
+      
+      setSellerAds(adsData);
     } catch (error) {
       console.error('Ошибка загрузки объявлений продавца:', error);
       setSellerAds([]);
     }
+  };
+
+  const handleRefresh = () => {
+    fetchSellerData();
   };
 
   const formatDate = (dateString) => {
@@ -137,20 +139,40 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
     return (
       <div style={loadingStyle}>
         <div style={spinnerStyle}></div>
-        <p>Загрузка профиля...</p>
+        <p style={loadingTextStyle}>Загрузка профиля...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={errorPageStyle}>
+        <span className="material-symbols-outlined" style={{ fontSize: 64, color: '#ef4444', marginBottom: 16 }}>
+          error
+        </span>
+        <h3 style={errorTitleStyle}>Ошибка загрузки</h3>
+        <p style={errorTextStyle}>{error}</p>
+        <div style={errorButtonsStyle}>
+          <button style={errorBackButtonStyle} onClick={onBack}>
+            Вернуться назад
+          </button>
+          <button style={errorRetryButtonStyle} onClick={handleRefresh}>
+            Повторить попытку
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!seller) {
     return (
-      <div style={errorStyle}>
+      <div style={errorPageStyle}>
         <span className="material-symbols-outlined" style={{ fontSize: 64, color: '#e5e7eb', marginBottom: 16 }}>
           person_off
         </span>
-        <h3>Продавец не найден</h3>
-        <p>Пользователь с таким ID не существует</p>
-        <button style={backButtonStyle} onClick={onBack}>
+        <h3 style={errorTitleStyle}>Продавец не найден</h3>
+        <p style={errorTextStyle}>Пользователь с таким ID не существует</p>
+        <button style={errorBackButtonStyle} onClick={onBack}>
           Вернуться назад
         </button>
       </div>
@@ -165,7 +187,15 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <h2 style={titleStyle}>Профиль продавца</h2>
-        <div style={{ width: 40 }}></div>
+        <button 
+          onClick={handleRefresh} 
+          style={refreshButtonStyle}
+          title="Обновить"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+            refresh
+          </span>
+        </button>
       </div>
 
       {/* Profile Header */}
@@ -217,9 +247,20 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
 
       {/* Seller's Ads */}
       <div style={{ padding: '0 16px 32px', flex: 1 }}>
-        <h3 style={sectionTitleStyle}>
-          Объявления продавца ({sellerAds.length})
-        </h3>
+        <div style={sectionHeaderStyle}>
+          <h3 style={sectionTitleStyle}>
+            Объявления продавца ({sellerAds.length})
+          </h3>
+          {sellerAds.length > 0 && (
+            <button 
+              style={refreshAdsButtonStyle}
+              onClick={() => fetchSellerAds(seller.id)}
+              title="Обновить список объявлений"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+            </button>
+          )}
+        </div>
         
         {sellerAds.length > 0 ? (
           <div style={gridStyle}>
@@ -238,7 +279,10 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
             <span className="material-symbols-outlined" style={noAdsIconStyle}>
               sell
             </span>
-            <p style={noAdsTextStyle}>У продавца пока нет активных объявлений</p>
+            <h4 style={noAdsTitleStyle}>Нет активных объявлений</h4>
+            <p style={noAdsTextStyle}>
+              У продавца пока нет опубликованных объявлений или все объявления находятся на проверке
+            </p>
           </div>
         )}
       </div>
@@ -246,7 +290,7 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
   );
 }
 
-// Стили (оставляем те же)
+// Стили
 const pageStyle = { 
   backgroundColor: '#f6f6f8', 
   minHeight: '100vh', 
@@ -276,6 +320,20 @@ const backButtonStyle = {
   border: 'none', 
   cursor: 'pointer', 
   color: '#46A8C1' 
+};
+
+const refreshButtonStyle = {
+  width: 40,
+  height: 40,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: '#46A8C1',
+  borderRadius: '20px',
+  transition: 'background-color 0.2s ease'
 };
 
 const titleStyle = { 
@@ -365,14 +423,14 @@ const statsContainerStyle = {
   padding: '16px 0', 
   marginBottom: '12px', 
   borderBottom: '1px solid #eee',
-  borderTop: '1px solid #eee'
+  borderTop: '1px solid #eee' 
 };
 
 const statItemStyle = { 
   display: 'flex', 
   flexDirection: 'column', 
   alignItems: 'center', 
-  gap: '4px'
+  gap: '4px' 
 };
 
 const statNumberStyle = { 
@@ -386,11 +444,32 @@ const statLabelStyle = {
   color: '#6b7280' 
 };
 
+const sectionHeaderStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 16
+};
+
 const sectionTitleStyle = {
   fontSize: 18,
   fontWeight: 'bold',
   color: '#0d121b',
-  marginBottom: 16
+  margin: 0
+};
+
+const refreshAdsButtonStyle = {
+  width: 36,
+  height: 36,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: '#46A8C1',
+  borderRadius: '18px',
+  transition: 'background-color 0.2s ease'
 };
 
 const gridStyle = { 
@@ -419,10 +498,19 @@ const noAdsIconStyle = {
   marginBottom: 16
 };
 
+const noAdsTitleStyle = {
+  fontSize: 16,
+  fontWeight: 'bold',
+  color: '#0d121b',
+  marginBottom: '8px'
+};
+
 const noAdsTextStyle = {
   fontSize: 14,
   color: '#6b7280',
-  margin: 0
+  margin: 0,
+  maxWidth: '300px',
+  margin: '0 auto'
 };
 
 const loadingStyle = {
@@ -434,7 +522,13 @@ const loadingStyle = {
   backgroundColor: '#f6f6f8'
 };
 
-const errorStyle = {
+const loadingTextStyle = {
+  marginTop: 16,
+  color: '#46A8C1',
+  fontSize: 16
+};
+
+const errorPageStyle = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -443,6 +537,48 @@ const errorStyle = {
   backgroundColor: '#f6f6f8',
   padding: 20,
   textAlign: 'center'
+};
+
+const errorTitleStyle = {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#0d121b',
+  marginBottom: '8px'
+};
+
+const errorTextStyle = {
+  fontSize: 14,
+  color: '#6b7280',
+  marginBottom: '24px',
+  maxWidth: '300px'
+};
+
+const errorButtonsStyle = {
+  display: 'flex',
+  gap: '12px',
+  marginTop: 16
+};
+
+const errorBackButtonStyle = {
+  padding: '10px 20px',
+  backgroundColor: '#f3f4f6',
+  color: '#374151',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer'
+};
+
+const errorRetryButtonStyle = {
+  padding: '10px 20px',
+  backgroundColor: '#46A8C1',
+  color: 'white',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: 14,
+  fontWeight: '500',
+  cursor: 'pointer'
 };
 
 const spinnerStyle = {
