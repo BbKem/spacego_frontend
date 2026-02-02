@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import ReviewModal from './ReviewModal'; 
 
-function AdDetail({ ad, onBack,setCurrentPage, setSelectedSellerId }) {
+function AdDetail({ ad, onBack,setCurrentPage, setSelectedSellerId,setViewingFromAdDetail, openSellerProfile  }) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [imageErrors, setImageErrors] = useState({});
   const [isFavorite, setIsFavorite] = useState(false);
@@ -56,10 +56,19 @@ function AdDetail({ ad, onBack,setCurrentPage, setSelectedSellerId }) {
     }
   };
 
-    const handleViewSellerProfile = () => {
-    if (ad.user_id && setSelectedSellerId && setCurrentPage) {
-      setSelectedSellerId(ad.user_id);
-      setCurrentPage('seller-profile');
+ const handleViewSellerProfile = () => {
+    if (ad?.user_id) {
+      console.log('Opening seller profile:', ad.user_id);
+      
+      if (openSellerProfile) {
+        // Используем новую функцию из App.jsx
+        openSellerProfile(ad.user_id, { fromAdDetail: true });
+      } else if (setSelectedSellerId && setCurrentPage) {
+        // Старый способ (для обратной совместимости)
+        setSelectedSellerId(ad.user_id);
+        setViewingFromAdDetail(true);
+        setCurrentPage('seller-profile');
+      }
     }
   };
 
@@ -1050,13 +1059,13 @@ function AdDetail({ ad, onBack,setCurrentPage, setSelectedSellerId }) {
             </div>
             
             {/* Кнопка перехода к профилю */}
-            <button 
-    style={profileButtonStyle}
-    onClick={handleViewSellerProfile}
-    title="Перейти к профилю продавца"
-  >
-    <span className="material-symbols-outlined" style={{ color: '#46A8C1', fontSize: 20 }}>person</span>
-  </button>
+           <button 
+  style={profileButtonStyle}
+  onClick={handleViewSellerProfile}
+  title="Перейти к профилю продавца"
+>
+  <span className="material-symbols-outlined" style={{ color: '#46A8C1', fontSize: 20 }}>person</span>
+</button>
           </div>
 
           {/* Кнопка оставить отзыв */}

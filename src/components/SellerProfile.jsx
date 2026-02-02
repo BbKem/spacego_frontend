@@ -5,6 +5,7 @@ import UserReviews from './UserReviews';
 
 function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
   const [seller, setSeller] = useState(null);
+  const [allAds, setAllAds] = useState([]);
   const [sellerAds, setSellerAds] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,29 +14,46 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
     : 'https://spacego-backend.onrender.com';
 
   useEffect(() => {
-    fetchSellerData();
+    fetchAllData();
   }, [sellerId]);
 
-  const fetchSellerData = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-      // 1. Получаем информацию о продавце через существующий endpoint
+      // 1. Получаем информацию о продавце
       const sellerResponse = await fetch(`${API_BASE}/api/user/${sellerId}`);
       const sellerData = await sellerResponse.json();
       
       if (sellerData.success) {
         setSeller(sellerData.user);
         
-        // 2. Получаем объявления продавца через фильтр user_id
-        const adsResponse = await fetch(`${API_BASE}/api/ads?user_id=${sellerId}`);
-        const adsData = await adsResponse.json();
+        // 2. Получаем ВСЕ объявления (без фильтров)
+        const adsResponse = await fetch(`${API_BASE}/api/ads`);
+        const allAdsData = await adsResponse.json();
+        setAllAds(allAdsData);
         
-        // Фильтруем только активные объявления
-        const activeAds = adsData.filter(ad => 
-          ad.status === 'approved' && 
-          !ad.is_archived
-        );
-        setSellerAds(activeAds);
+        // 3. Фильтруем на фронтенде
+        const filteredAds = allAdsData.filter(ad => {
+          // Проверяем, что объявление принадлежит продавцу
+          const isSellerAd = ad.user_id && ad.user_id.toString() === sellerId.toString();
+          
+          // Проверяем статус и архив
+          const isActive = ad.status === 'approved' && 
+                         (ad.is_archived === false || ad.is_archived === null || ad.is_archived === undefined);
+          
+          return isSellerAd && isActive;
+        });
+        
+        console.log('Filtered seller ads:', {
+          sellerId,
+          allAdsCount: allAdsData.length,
+          filteredCount: filteredAds.length,
+          filteredAds: filteredAds.map(ad => ({ id: ad.id, title: ad.title, user_id: ad.user_id }))
+        });
+        
+        setSellerAds(filteredAds);
+      } else {
+        console.error('Failed to fetch seller:', sellerData);
       }
     } catch (error) {
       console.error('Ошибка загрузки данных продавца:', error);
@@ -179,7 +197,7 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
       </div>
 
       {/* Seller's Ads */}
-      <div style={{ padding: '0 16px 32px' }}>
+      <div style={{ padding: '0 16px 32px', flex: 1 }}>
         <h3 style={sectionTitleStyle}>
           Объявления продавца ({sellerAds.length})
         </h3>
@@ -209,7 +227,7 @@ function SellerProfile({ sellerId, onBack, setCurrentPage, setSelectedAd }) {
   );
 }
 
-// Стили (оставляем те же что в предыдущем примере)
+// Стили (оставляем те же)
 const pageStyle = { 
   backgroundColor: '#f6f6f8', 
   minHeight: '100vh', 

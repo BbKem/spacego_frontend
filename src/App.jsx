@@ -173,8 +173,9 @@ function AppContent() {
   const [safeAreaTop, setSafeAreaTop] = useState(0);
   const [viewingFromModeration, setViewingFromModeration] = useState(false);
   const [viewingFromProfile, setViewingFromProfile] = useState(false);
-   const [viewingFromReviews, setViewingFromReviews] = useState(false);
-   const [selectedSellerId, setSelectedSellerId] = useState(null);
+  const [viewingFromReviews, setViewingFromReviews] = useState(false);
+  const [selectedSellerId, setSelectedSellerId] = useState(null);
+  const [viewingFromAdDetail, setViewingFromAdDetail] = useState(false);
 
   // ========== ДОБАВЛЕНО: ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP ==========
   useEffect(() => {
@@ -247,9 +248,19 @@ function AppContent() {
       } else if (viewingFromProfile) {
         setCurrentPage('profile');
         setViewingFromProfile(false);
+      } else if (viewingFromAdDetail) {
+        setCurrentPage('home');
+        setViewingFromAdDetail(false);
       } else {
         setCurrentPage('home');
       }
+    } else if (currentPage === 'seller-profile') {
+      if (viewingFromAdDetail && selectedAd) {
+        setCurrentPage('ad-detail');
+      } else {
+        setCurrentPage('home');
+      }
+      setViewingFromAdDetail(false);
     } else if (currentPage === 'moderation' || currentPage === 'admin') {
       setCurrentPage('profile');
     } else if (currentPage === 'profile') {
@@ -258,7 +269,7 @@ function AppContent() {
       setCurrentPage('home');
     } else if (currentPage === 'favorites') {
       setCurrentPage('home');
-    }else if (currentPage === 'all-reviews') { // ← ДОБАВЬТЕ ЭТО
+    } else if (currentPage === 'all-reviews') {
       setCurrentPage('profile');
       setViewingFromReviews(false);
     } 
@@ -332,20 +343,30 @@ function AppContent() {
     setUserRole('user');
     setCurrentPage('home');
     setSelectedAd(null);
+    setSelectedSellerId(null);
     setViewingFromModeration(false);
     setViewingFromProfile(false);
+    setViewingFromAdDetail(false);
   };
 
   const viewAd = (ad, options = {}) => {
     setSelectedAd(ad);
     setViewingFromModeration(options.fromModeration || false);
     setViewingFromProfile(options.fromProfile || false);
+    setViewingFromAdDetail(options.fromAdDetail || false);
     setCurrentPage('ad-detail');
+  };
+
+  // Функция для открытия профиля продавца
+  const openSellerProfile = (sellerId, options = {}) => {
+    console.log('Opening seller profile:', sellerId, options);
+    setSelectedSellerId(sellerId);
+    setViewingFromAdDetail(options.fromAdDetail || false);
+    setCurrentPage('seller-profile');
   };
 
   const handleAdCreated = (ad) => {
     console.log('Новое объявление создано:', ad);
-    // Теперь перенаправляем в профиль
     setCurrentPage('profile');
   };
 
@@ -374,17 +395,20 @@ function AppContent() {
   const showBottomNav = currentPage !== 'ad-detail' && 
                        currentPage !== 'edit-ad' && 
                        currentPage !== 'moderation' &&
-                       currentPage !== 'admin';
-                        currentPage !== 'all-reviews';
+                       currentPage !== 'admin' &&
+                       currentPage !== 'all-reviews' &&
+                       currentPage !== 'seller-profile';
 
   // Определяем, откуда возвращаться из просмотра объявления
- const getBackDestination = () => {
+  const getBackDestination = () => {
     if (viewingFromModeration) {
       return 'moderation';
     } else if (viewingFromProfile) {
       return 'profile';
     } else if (viewingFromReviews) {
-      return 'profile'; // Возвращаем в профиль из отзывов
+      return 'profile';
+    } else if (viewingFromAdDetail) {
+      return 'home';
     } else {
       return 'home';
     }
@@ -399,7 +423,6 @@ function AppContent() {
     paddingLeft: 'env(safe-area-inset-left, 0px)',
     paddingRight: 'env(safe-area-inset-right, 0px)',
   };
-  
 
   return (
     <div style={safeAreaStyle}>
@@ -413,14 +436,18 @@ function AppContent() {
           setCurrentPage={setCurrentPage}
         />
       )}
-   {currentPage === 'ad-detail' && (
-  <AdDetail 
-    ad={selectedAd} 
-    onBack={() => setCurrentPage(getBackDestination())}
-    setCurrentPage={setCurrentPage}
-    setSelectedSellerId={setSelectedSellerId}
-  />
-)}
+      
+      {currentPage === 'ad-detail' && (
+        <AdDetail 
+          ad={selectedAd} 
+          onBack={() => setCurrentPage(getBackDestination())}
+          setCurrentPage={setCurrentPage}
+          setSelectedSellerId={setSelectedSellerId}
+          setViewingFromAdDetail={setViewingFromAdDetail}
+          openSellerProfile={openSellerProfile}
+        />
+      )}
+      
       {currentPage === 'create-ad' && (
         <CreateAd 
           onBack={() => setCurrentPage('home')} 
@@ -428,12 +455,14 @@ function AppContent() {
           setCurrentPage={setCurrentPage}
         />
       )}
+      
       {currentPage === 'favorites' && (
         <Favorites 
           onViewAd={(ad) => viewAd(ad, { fromProfile: true })} 
           onBack={() => setCurrentPage('home')}
         />
       )}
+      
       {currentPage === 'profile' && (
         <Profile 
           user={user}
@@ -444,6 +473,7 @@ function AppContent() {
           setCurrentPage={setCurrentPage}
         />
       )}
+      
       {currentPage === 'edit-ad' && (
         <EditAd 
           onBack={() => {
@@ -453,19 +483,21 @@ function AppContent() {
           onUpdate={handleAdUpdated}
         />
       )}
+      
       {currentPage === 'moderation' && (
         <ModerationPanel 
           onBack={() => setCurrentPage('profile')}
           onViewAd={(ad) => viewAd(ad, { fromModeration: true })}
         />
       )}
+      
       {currentPage === 'admin' && (
         <AdminPanel 
           onBack={() => setCurrentPage('profile')}
         />
       )}
 
-       {currentPage === 'all-reviews' && (
+      {currentPage === 'all-reviews' && (
         <AllReviews 
           userId={user?.id}
           userName={getName(user)}
@@ -477,15 +509,22 @@ function AppContent() {
       )}
 
       {currentPage === 'seller-profile' && (
-  <SellerProfile 
-    sellerId={selectedSellerId}
-    onBack={() => {
-      setCurrentPage('ad-detail');
-    }}
-    setCurrentPage={setCurrentPage}
-    setSelectedAd={setSelectedAd}
-  />
-)}
+        <SellerProfile 
+          sellerId={selectedSellerId}
+          onBack={() => {
+            if (viewingFromAdDetail && selectedAd) {
+              // Возвращаемся к объявлению
+              setCurrentPage('ad-detail');
+            } else {
+              // Возвращаемся на главную
+              setCurrentPage('home');
+            }
+            setViewingFromAdDetail(false);
+          }}
+          setCurrentPage={setCurrentPage}
+          setSelectedAd={setSelectedAd}
+        />
+      )}
       
       {showBottomNav && (
         <BottomNav 
